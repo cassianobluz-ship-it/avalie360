@@ -1042,34 +1042,14 @@ function LinkCard({label,link,color="#2563eb"}){
   );
 }
 
-function ScBar({label,score,isRisk,subtitle}){
-  // Blocos de risco têm lógica invertida: score baixo = bom
-  if(isRisk){
-    const noAlert = score===0||score<=1.5;
-    return(
-      <div style={{marginBottom:16}}>
-        <div style={{fontSize:13,color:"#475569",fontWeight:600,marginBottom:2}}>{label}</div>
-        {subtitle&&<div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{subtitle}</div>}
-        <div style={{background:noAlert?"#f0fdf4":"#fef3c7",border:`1px solid ${noAlert?"#bbf7d0":"#fde68a"}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>{noAlert?"✅":"⚠️"}</span>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,color:noAlert?"#059669":"#d97706"}}>{noAlert?"Nenhum sinal de alerta identificado":"Alguns sinais merecem atenção"}</div>
-            <div style={{fontSize:11,color:noAlert?"#16a34a":"#b45309",marginTop:2}}>{noAlert?"O grupo não observou comportamentos preocupantes neste ciclo.":"Considere uma conversa de acompanhamento."}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+function ScBar({label,score}){
   return(
     <div style={{marginBottom:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:subtitle?2:5}}>
-        <div>
-          <span style={{fontSize:13,color:"#475569",fontWeight:500}}>{label}</span>
-          {subtitle&&<div style={{fontSize:11,color:"#94a3b8",marginTop:1}}>{subtitle}</div>}
-        </div>
-        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8",marginBottom:subtitle?6:0}}>{score>0?score.toFixed(1)+"/5":"—"}</span>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+        <span style={{fontSize:13,color:"#475569",fontWeight:500}}>{label}</span>
+        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8"}}>{score>0?score.toFixed(1)+"/5":"—"}</span>
       </div>
-      <div style={{background:"#e2e8f0",borderRadius:99,height:8,marginTop:subtitle?6:0}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:99,transition:"width 0.6s ease"}}/></div>
+      <div style={{background:"#e2e8f0",borderRadius:99,height:8}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:99,transition:"width 0.6s ease"}}/></div>
     </div>
   );
 }
@@ -1164,32 +1144,14 @@ function KpiCard({icon,val,label,color}){
 // PDF Print function
 function printIndividualPDF({org,avaliado,ciclo,formTitle,bStats,mgeral,abList,respsCount}){
   function sc(s){return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";}
-  const nonRiskCount=bStats.filter(b=>!b.isRisk).length;
-  const bars=bStats.map(b=>{
-    if(b.isRisk){
-      const noAlert=b.media===0||b.media<=1.5;
-      return `<div style="margin-bottom:16px">
-        <div style="font-size:13px;color:#475569;font-weight:600;margin-bottom:4px">${b.fullName||b.name}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Presença de sinais de alerta emocional ou relacional observados pelo grupo</div>
-        <div style="background:${noAlert?"#f0fdf4":"#fef3c7"};border:1px solid ${noAlert?"#bbf7d0":"#fde68a"};border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">
-          <span style="font-size:24px">${noAlert?"✅":"⚠️"}</span>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:${noAlert?"#059669":"#d97706"}">${noAlert?"Nenhum sinal de alerta identificado":"Alguns sinais merecem atenção"}</div>
-            <div style="font-size:11px;color:${noAlert?"#16a34a":"#b45309"};margin-top:2px">${noAlert?"O grupo não observou comportamentos preocupantes neste ciclo. Isso é ótimo.":"Considere uma conversa de acompanhamento com essa pessoa."}</div>
-          </div>
-        </div>
-      </div>`;
-    }
-    return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/5":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`;
-  }).join("");
+  const bars=bStats.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/5":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
   const comments=abList.length>0?`<p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin:28px 0 12px">Reflexões abertas (${abList.length})</p>${abList.map(t=>`<div style="background:#f8faff;border-left:3px solid #3b82f6;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#334155;line-height:1.7;border-radius:0 8px 8px 0">"${t}"</div>`).join("")}`:"";
   const logoHtml=org.logoUrl?`<img src="${org.logoUrl}" style="height:44px;object-fit:contain"/>`:`<div style="width:44px;height:44px;border-radius:10px;background:#1e3a8a;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${(org.name||"?").slice(0,2).toUpperCase()}</div>`;
-  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${avaliado}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;color:#1e293b;padding:40px;max-width:800px;margin:0 auto}.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;border-bottom:3px solid #1e3a8a;margin-bottom:28px}.badge{background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}.ctx-note{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;font-size:12px;color:#64748b;margin:16px 0 24px;line-height:1.6}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 28px}.kpi{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px;text-align:center}.kpi-val{font-size:22px;font-weight:800;color:#1e3a8a}.kpi-lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}.footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0}.lgpd{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:11px;color:#15803d;margin-top:32px}@media print{body{padding:20px}}</style></head><body>
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${avaliado}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;color:#1e293b;padding:40px;max-width:800px;margin:0 auto}.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;border-bottom:3px solid #1e3a8a;margin-bottom:28px}.badge{background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 28px}.kpi{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px;text-align:center}.kpi-val{font-size:22px;font-weight:800;color:#1e3a8a}.kpi-lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}.footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0}.lgpd{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:11px;color:#15803d;margin-top:32px}@media print{body{padding:20px}}</style></head><body>
   <div class="hdr"><div>${logoHtml}<div style="margin-top:10px"><strong style="font-size:15px;color:#1e3a8a">${org.name||""}</strong><div style="font-size:11px;color:#64748b;margin-top:2px">Avaliação 360°</div></div></div><div style="text-align:right"><span class="badge">LGPD conforme</span><div style="font-size:11px;color:#94a3b8;margin-top:8px">Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></div></div>
-  <h1 style="font-size:24px;font-weight:800;color:#1e3a8a;margin-bottom:4px">${avaliado}</h1>
-  <div style="font-size:13px;color:#64748b;margin-bottom:4px">${formTitle} · ${ciclo}</div>
-  <div class="ctx-note">💡 Este relatório reúne as percepções de <strong>${respsCount} ${respsCount===1?"pessoa":"pessoas"}</strong> que responderam sobre ${avaliado}. As respostas são anônimas — você está vendo o que o grupo enxerga de forma agregada.</div>
-  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/5</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${nonRiskCount}</div><div class="kpi-lbl">Dimensões</div></div></div>
+  <h1 style="font-size:22px;font-weight:800;color:#1e3a8a;margin-bottom:4px">${avaliado}</h1>
+  <div style="font-size:13px;color:#64748b">${formTitle} · ${ciclo}</div>
+  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/5</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bStats.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
   <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px">Pontuação por dimensão</p>${bars}${comments}
   <div class="lgpd">🔒 Este relatório não contém dados pessoais identificáveis. Respostas exibidas de forma agregada conforme a LGPD (Lei nº 13.709/2018).</div>
   <div class="footer">Powered by Conectando Gente — Avaliação 360°</div>
@@ -1272,6 +1234,14 @@ export default function App(){
       const ao=await loadOrgs();setOrgs(ao);
       // Clean URL routing: /orgSlug/ciclo/formId/avaliadoId
       const pathParts = window.location.pathname.replace(/^\//, "").split("/").filter(Boolean);
+      const urlParams = new URLSearchParams(window.location.search);
+
+      // Handle custom_upgrade return from Stripe
+      if(urlParams.get("custom_upgrade")==="1"){
+        window.history.replaceState({}, "", window.location.pathname);
+        // Mostra alert após pequeno delay para a página carregar
+        setTimeout(()=>alert("✅ Plano Personalizado ativado com sucesso!\n\nAcesse o painel admin → Formulários para começar a personalizar suas perguntas."), 800);
+      }
 
       // Handle login URL: /sepal/login
       if(pathParts.length >= 2 && pathParts[1] === "login") {
@@ -1367,8 +1337,8 @@ export default function App(){
   const fForm=forms[ffi];const fBloc=fForm?.blocos[fbi];const isLast=fForm&&fbi===fForm.blocos.length-1;
   const dForm=forms[dfi];
   const dData=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id&&(dAvaliado===""||r.avaliadoId===dAvaliado));
-  const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);const isRisk=b.id?.startsWith("riscos_")||b.scaleType==="yesno";return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0,isRisk,subtitle:b.subtitle||null};}):[];
-  const mgeral=(()=>{const nonRisk=bStats.filter(b=>!b.isRisk&&b.media>0);return nonRisk.length?(nonRisk.reduce((a,b)=>a+b.media,0)/nonRisk.length).toFixed(1):"—";})();
+  const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0};}):[];
+  const mgeral=bStats.length?(bStats.reduce((a,b)=>a+b.media,0)/bStats.length).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
   const dist=[1,2,3,4,5].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,12),count:c};});
   // Comparativo entre ciclos
@@ -1813,17 +1783,6 @@ export default function App(){
             </div>
           </div>
         </div>
-        {/* Identificação do avaliado selecionado */}
-        {dAvaliado&&(()=>{const av=avaliados.find(a=>a.id===dAvaliado);return av?(
-          <div style={{background:"linear-gradient(135deg,#1e3a8a,#2563eb)",borderRadius:R.xl,padding:"16px 20px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👤</div>
-            <div>
-              <div style={{color:"#fff",fontWeight:800,fontSize:16,lineHeight:1}}>{av.nome}</div>
-              {av.funcao&&<div style={{color:"rgba(255,255,255,0.7)",fontSize:12,marginTop:3}}>{av.funcao}</div>}
-              <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,marginTop:2}}>{dci} · {dForm?.title||""}</div>
-            </div>
-          </div>
-        ):null;})()}
         {/* KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
           <KpiCard icon="📋" val={dData.length} label="Respostas" color={pc}/>
@@ -1847,7 +1806,7 @@ export default function App(){
         ):(<>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{dAvaliado&&<p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{avaliados.find(a=>a.id===dAvaliado)?.nome||""} · {dci}</p>}{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
         {/* Status */}
