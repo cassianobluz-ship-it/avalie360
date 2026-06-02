@@ -1236,11 +1236,15 @@ export default function App(){
       const pathParts = window.location.pathname.replace(/^\//, "").split("/").filter(Boolean);
       const urlParams = new URLSearchParams(window.location.search);
 
-      // Handle custom_upgrade return from Stripe
+      // Handle retorno do Stripe — nova contratação
+      if(urlParams.get("success")==="1"){
+        window.history.replaceState({}, "", window.location.pathname);
+        setTimeout(()=>alert("🎉 Pagamento confirmado! Sua conta foi criada com sucesso.\n\nVerifique seu email — você receberá as credenciais de acesso em instantes.\n\nPara acessar o painel: clique em \"Acessar painel\" abaixo."), 600);
+      }
+      // Handle retorno do Stripe — plano personalizado
       if(urlParams.get("custom_upgrade")==="1"){
         window.history.replaceState({}, "", window.location.pathname);
-        // Mostra alert após pequeno delay para a página carregar
-        setTimeout(()=>alert("✅ Plano Personalizado ativado com sucesso!\n\nAcesse o painel admin → Formulários para começar a personalizar suas perguntas."), 800);
+        setTimeout(()=>alert("✅ Plano Personalizado ativado com sucesso!\n\nAcesse o painel admin → clique em Formulários para começar a personalizar suas perguntas."), 600);
       }
 
       // Handle login URL: /sepal/login
@@ -2596,7 +2600,7 @@ export default function App(){
         </div>
         <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
-            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
+            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de acesso para colaboradores é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
           </div>
 
           {/* Add user */}
