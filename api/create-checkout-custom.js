@@ -1,15 +1,30 @@
 const Stripe = require('stripe');
 
+async function parseBody(req) {
+  return new Promise((resolve) => {
+    if (req.body && typeof req.body === 'object') return resolve(req.body);
+    let data = '';
+    req.on('data', chunk => { data += chunk.toString(); });
+    req.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { resolve({}); } });
+    req.on('error', () => resolve({}));
+  });
+}
+
 module.exports = async (req, res) => {
-  // CORS para permitir chamada do app
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { orgId, orgName, orgSlug, adminEmail } = req.body;
-  if (!orgId || !orgName || !orgSlug) return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+  const body = await parseBody(req);
+  const { orgId, orgName, orgSlug, adminEmail } = body;
+
+  console.log('create-checkout-custom received:', { orgId, orgName, orgSlug });
+
+  if (!orgId || !orgName || !orgSlug) {
+    return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+  }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const appUrl = 'https://avalie360.vercel.app';
@@ -22,7 +37,7 @@ module.exports = async (req, res) => {
           currency: 'brl',
           product_data: {
             name: 'Avalie360 — Plano Personalizado',
-            description: `Personalização de formulários · ${orgName} · por ciclo`,
+            description: `Personalização de formulários · ${orgName} · por ciclo de avaliação`,
           },
           unit_amount: 30000,
         },
@@ -30,9 +45,9 @@ module.exports = async (req, res) => {
       }],
       mode: 'payment',
       customer_email: adminEmail || undefined,
-      // Retorna URL direta — mais confiável que redirectToCheckout
-      success_url: `${appUrl}/${orgSlug}/login?custom_upgrade=1`,
-      cancel_url: `${appUrl}/${orgSlug}/login`,
+      // success_url aponta para tela INICIAL do app (não /login de usuário)
+      success_url: `${appUrl}?custom_upgrade=1&org=${encodeURIComponent(orgSlug)}`,
+      cancel_url: `${appUrl}`,
       metadata: {
         type: 'plan_custom',
         orgId,
@@ -42,10 +57,10 @@ module.exports = async (req, res) => {
       },
     });
 
-    // Retorna tanto sessionId quanto url direta
+    console.log('Sessão Stripe criada:', session.id);
     res.status(200).json({ sessionId: session.id, url: session.url });
   } catch (err) {
-    console.error('Stripe error:', err);
+    console.error('Stripe error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
