@@ -50,7 +50,7 @@ const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal i
 // ─── FORMULÁRIOS ADAPTATIVOS POR TIPO DE ORGANIZAÇÃO ─────────────────
 function getDefaultFormsForOrg(orgType) {
   const isReligiosa = !orgType || orgType === "religiosa";
-  // Bloco de espiritualidade/propósito — varia por tipo
+
   const blocoEspiritual = isReligiosa
     ? { id:"espiritualidade", title:"Vida espiritual e coerência", icon:"✝️",
         perguntas:[
@@ -71,7 +71,6 @@ function getDefaultFormsForOrg(orgType) {
         ],
         abertas:["Em quais áreas você percebe maior crescimento pessoal no último período?","Em quais áreas sente maior fragilidade atualmente?"]};
 
-  // Bloco impacto — varia por tipo
   const blocoImpacto = isReligiosa
     ? { id:"impacto", title:"Impacto e resultados", icon:"🌱",
         perguntas:[
@@ -90,7 +89,6 @@ function getDefaultFormsForOrg(orgType) {
         ],
         abertas:["Onde você percebe maiores resultados atualmente?","Onde gostaria de crescer no próximo ciclo?"]};
 
-  // Saúde emocional — varia por tipo
   const blocoSaudeEmocional = isReligiosa
     ? { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
         perguntas:[
@@ -98,27 +96,26 @@ function getDefaultFormsForOrg(orgType) {
           "Tenho percebido equilíbrio entre ministério, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
           "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
-          "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
-        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]}
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?"]}
     : { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
         perguntas:[
           "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
           "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
           "Tenho chegado às minhas atividades com disposição e motivação.",
-          "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
-        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]};
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?"]};
 
+  // Autoavaliação com dimensões alinhadas às demais perspectivas
   return [
     { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
       blocos:[
         blocoEspiritual,
         blocoSaudeEmocional,
-        { id:"relacionamentos", title:"Relacionamentos e equipe", icon:"🤝",
+        { id:"relacionamentos", title:"Relacionamentos e convivência", icon:"🤝",
           perguntas:[
             "Tenho contribuído para que meus ambientes sejam saudáveis.",
             "Tenho escutado opiniões diferentes sem defensividade.",
@@ -141,7 +138,6 @@ function getDefaultFormsForOrg(orgType) {
             "Tenho contribuído para a unidade da organização.",
             "Tenho fortalecido a cultura de cuidado e cooperação.",
             "Tenho mantido alinhamento com a liderança e suas diretrizes.",
-            "Tenho colaborado para o desenvolvimento da organização.",
           ],
           abertas:["O que mais conecta você ao propósito da organização?","O que hoje dificulta seu alinhamento ou engajamento?"]},
         blocoImpacto,
@@ -158,7 +154,9 @@ function getDefaultFormsForOrg(orgType) {
   ];
 }
 
+
 const DEFAULT_FORMS = [
+  // ── AUTOAVALIAÇÃO ──────────────────────────────────────────────
   { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
     blocos:[
       { id:"espiritualidade", title:"Vida espiritual e coerência", icon:"✝️",
@@ -168,20 +166,18 @@ const DEFAULT_FORMS = [
           "Tenho reagido a críticas e correções com humildade.",
           "Tenho buscado a vontade de Deus para minhas decisões.",
           "Minha prática ministerial tem refletido os objetivos que defini no meu planejamento anual.",
-          "Tenho conseguido me manter humilde diante dos sucessos pessoais e ministeriais.",
         ],
         abertas:["Em quais áreas você percebe maior crescimento espiritual no último período?","Em quais áreas sente maior fragilidade atualmente?"]},
       { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
         perguntas:[
           "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
-          "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
+          "Tenho percebido equilíbrio entre ministério, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
           "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
-          "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
-        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]},
-      { id:"relacionamentos", title:"Relacionamentos e equipe", icon:"🤝",
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?"]},
+      { id:"relacionamentos", title:"Relacionamentos e convivência", icon:"🤝",
         perguntas:[
           "Tenho contribuído para que meus ambientes sejam saudáveis.",
           "Tenho escutado opiniões diferentes sem defensividade.",
@@ -204,7 +200,6 @@ const DEFAULT_FORMS = [
           "Tenho contribuído para a unidade da organização.",
           "Tenho fortalecido a cultura de cuidado e cooperação.",
           "Tenho mantido alinhamento com a liderança e suas diretrizes.",
-          "Tenho colaborado para o desenvolvimento da organização.",
         ],
         abertas:["O que mais conecta você ao propósito da organização?","O que hoje dificulta seu alinhamento ou engajamento?"]},
       { id:"impacto", title:"Impacto e resultados", icon:"🌱",
@@ -225,82 +220,120 @@ const DEFAULT_FORMS = [
         ],
         abertas:[]},
     ]},
+
+  // ── AVALIAÇÃO DE PARES ──────────────────────────────────────────
   { id:"pares", title:"Avaliação de Pares", icon:"👥", subtitle:"Compartilhe com cuidado e honestidade",
     blocos:[
-      { id:"convivencia", title:"Relacionamentos e convivência", icon:"🤝",
+      { id:"relacionamentos_par", title:"Relacionamentos e convivência", icon:"🤝",
         perguntas:[
-          "Essa pessoa contribui para um ambiente saudável.",
-          "Trata as pessoas com respeito.",
-          "Trabalha bem em equipe.",
+          "Esta pessoa contribui para um ambiente saudável.",
+          "Trata as pessoas com respeito e consideração.",
+          "Trabalha bem em equipe, demonstrando cooperação.",
           "Demonstra humildade nos relacionamentos.",
           "Resolve conflitos com maturidade.",
-          "Escuta opiniões diferentes.",
-          "Demonstra disposição para cooperar.",
+          "Escuta opiniões diferentes com abertura.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+        abertas:[]},
       { id:"comunicacao_par", title:"Comunicação", icon:"💬",
         perguntas:[
-          "Comunica-se de forma clara.",
+          "Comunica-se de forma clara e objetiva.",
           "Compartilha informações importantes adequadamente.",
           "Escuta com atenção.",
           "Demonstra abertura ao diálogo.",
-          "Quando precisa corrigir ou orientar, faz isso de forma respeitosa e construtiva.",
+          "Quando precisa corrigir ou orientar, faz isso de forma respeitosa.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
-      { id:"maturidade", title:"Maturidade emocional", icon:"💙",
+        abertas:[]},
+      { id:"maturidade_par", title:"Maturidade emocional", icon:"🧘",
         perguntas:[
           "Demonstra equilíbrio emocional diante das pressões.",
           "Reage de forma madura a frustrações.",
           "Assume erros quando necessário.",
           "Ouve críticas sem defensividade excessiva.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
-      { id:"cultura_par", title:"Cultura e missão", icon:"⛵",
+        abertas:[]},
+      { id:"alinhamento_par", title:"Alinhamento e cultura", icon:"⛵",
         perguntas:[
           "Representa bem os valores da organização.",
-          "Fortalece a unidade.",
+          "Fortalece a unidade do grupo.",
           "Demonstra compromisso com a organização.",
           "Atua de forma coerente com a cultura onde está inserida.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+        abertas:[]},
+      { id:"impacto_par", title:"Impacto e resultados", icon:"🌱",
+        perguntas:[
+          "Produz impacto positivo nas pessoas ao seu redor.",
+          "Contribui de forma relevante para os resultados da equipe.",
+          "Demonstra iniciativa e proatividade.",
+          "Investe no próprio desenvolvimento.",
+        ],
+        abertas:["O que esta pessoa faz que mais contribui para a equipe?","Em qual área você percebe maior potencial de crescimento nesta pessoa?"]},
       { id:"saude_integral_par", title:"Saúde integral", icon:"💚",
         perguntas:[
-          "Demonstra abertura e vulnerabilidade saudável.",
           "Demonstra sinais saudáveis nas relações familiares.",
-          "Demonstra sinais de descanso adequado.",
+          "Demonstra sinais de descanso e equilíbrio adequados.",
           "Demonstra boa disposição física e cuidado com a saúde.",
           "Demonstra maturidade para lidar com frustrações.",
         ],
         abertas:[]},
-      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
+      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️",
         perguntas:[
-          "Percebo sinais de sobrecarga.",
+          "Percebo sinais de sobrecarga nesta pessoa.",
           "Percebo sinais de isolamento.",
           "Percebo sinais de desgaste emocional.",
           "Percebo perda de motivação.",
           "Percebo tensões relacionais recorrentes.",
-          "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
+          "Esta pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+        abertas:[],isRisk:true},
     ]},
-  { id:"lideranca_direta", title:"Avaliação pela Liderança", icon:"🧭", subtitle:"Avaliação de quem acompanha de perto",
+
+  // ── AVALIAÇÃO PELA LIDERANÇA ────────────────────────────────────
+  { id:"lideranca", title:"Avaliação pela Liderança", icon:"🧭", subtitle:"Avaliação de quem acompanha de perto",
     blocos:[
-      { id:"responsabilidade", title:"Responsabilidade e confiabilidade", icon:"🛡️",
+      { id:"relacionamentos_lid", title:"Relacionamentos e convivência", icon:"🤝",
         perguntas:[
-          "Demonstra responsabilidade.",
-          "Cumpre compromissos e acordos.",
-          "Demonstra maturidade nas decisões.",
-          "Demonstra confiabilidade.",
-          "Demonstra coerência entre discurso e prática.",
-        ], abertas:[]},
-      { id:"aprendizado", title:"Desenvolvimento e aprendizado", icon:"🌱",
+          "Esta pessoa contribui para um ambiente saudável na equipe.",
+          "Trata as pessoas com respeito e consideração.",
+          "Demonstra capacidade de trabalhar bem em equipe.",
+          "Lida com conflitos de forma madura.",
+          "Demonstra humildade nos relacionamentos.",
+        ],
+        abertas:[]},
+      { id:"comunicacao_lid", title:"Comunicação", icon:"💬",
         perguntas:[
-          "Demonstra disposição para aprender.",
-          "Recebe orientações e críticas com maturidade.",
-          "Busca desenvolvimento pessoal.",
-          "Demonstra adaptabilidade.",
-        ], abertas:[]},
-      { id:"sustentabilidade", title:"Saúde e sustentabilidade", icon:"💙",
+          "Comunica-se com clareza e objetividade.",
+          "Escuta atentamente antes de responder.",
+          "Recebe orientações e feedbacks com abertura.",
+          "Comunica dificuldades e necessidades de forma adequada.",
+        ],
+        abertas:[]},
+      { id:"maturidade_lid", title:"Maturidade emocional", icon:"🧘",
+        perguntas:[
+          "Demonstra equilíbrio emocional diante das pressões.",
+          "Reage de forma madura a frustrações.",
+          "Demonstra segurança sem arrogância.",
+          "Assume erros quando necessário.",
+          "Recebe correções sem defensividade excessiva.",
+        ],
+        abertas:[]},
+      { id:"alinhamento_lid", title:"Alinhamento e cultura", icon:"⛵",
+        perguntas:[
+          "Representa bem os valores da organização.",
+          "Demonstra compromisso com a missão e propósito.",
+          "Mantém alinhamento com as diretrizes estabelecidas.",
+          "Fortalece a cultura da organização com sua presença.",
+        ],
+        abertas:[]},
+      { id:"impacto_lid", title:"Responsabilidade e resultados", icon:"🌱",
+        perguntas:[
+          "Demonstra responsabilidade com seus compromissos.",
+          "Cumpre acordos e prazos estabelecidos.",
+          "Demonstra disposição para aprender e crescer.",
+          "Busca desenvolvimento pessoal e profissional.",
+          "Contribui de forma relevante para os resultados da equipe.",
+        ],
+        abertas:["Quais são os maiores pontos fortes desta pessoa?","Em qual área você percebe maior potencial de crescimento?"]},
+      { id:"sustentabilidade", title:"Saúde e sustentabilidade", icon:"💚",
         perguntas:[
           "Administra adequadamente as pressões.",
           "Mantém limites saudáveis.",
@@ -308,73 +341,78 @@ const DEFAULT_FORMS = [
           "Demonstra boa disposição física.",
           "Sabe pedir ajuda quando necessário.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
-      { id:"maturidade_lid", title:"Maturidade emocional", icon:"💜",
+        abertas:[]},
+      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️",
         perguntas:[
-          "Demonstra equilíbrio emocional diante das pressões.",
-          "Reage de forma madura a frustrações.",
-          "Demonstra segurança sem arrogância.",
-          "Assume erros quando necessário.",
-          "Recebe correções sem defensividade excessiva.",
-        ], abertas:[]},
-      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
-        perguntas:[
-          "Percebo sinais de sobrecarga.",
+          "Percebo sinais de sobrecarga nesta pessoa.",
           "Percebo sinais de isolamento.",
           "Percebo sinais de desgaste emocional.",
           "Percebo perda de motivação.",
           "Percebo tensões relacionais recorrentes.",
-          "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
+          "Esta pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+        abertas:[],isRisk:true},
     ]},
-  { id:"liderados", title:"Avaliação pelos Liderados", icon:"⬆️", subtitle:"Sua perspectiva importa e será tratada com cuidado",
+
+  // ── AVALIAÇÃO PELOS LIDERADOS ───────────────────────────────────
+  { id:"liderados", title:"Avaliação pelos Liderados", icon:"🌿", subtitle:"Sua perspectiva importa e será tratada com cuidado",
     blocos:[
-      { id:"estilo", title:"Estilo de liderança", icon:"🧭",
+      { id:"relacionamentos_lid2", title:"Relacionamentos e convivência", icon:"🤝",
         perguntas:[
-          "Desenvolve ambiente seguro para diálogo.",
-          "Demonstra disposição e engajamento.",
-          "Escuta as pessoas com atenção.",
-          "Trata as pessoas com respeito.",
+          "Esta pessoa desenvolve um ambiente seguro para diálogo.",
+          "Trata as pessoas com respeito e consideração.",
+          "Demonstra cuidado genuíno pelas pessoas.",
+          "Lida bem com conflitos de forma justa.",
+          "Promove unidade na equipe.",
+        ],
+        abertas:[]},
+      { id:"comunicacao_lid2", title:"Comunicação", icon:"💬",
+        perguntas:[
+          "Comunica-se com clareza e objetividade.",
+          "Escuta as pessoas com atenção genuína.",
           "Dá direcionamentos claros quando necessário.",
-          "Demonstra equilíbrio nas decisões.",
+          "Fornece feedbacks de forma respeitosa e construtiva.",
+        ],
+        abertas:[]},
+      { id:"maturidade_lid2", title:"Maturidade emocional", icon:"🧘",
+        perguntas:[
+          "Demonstra equilíbrio emocional diante das pressões.",
+          "Reage de forma madura a frustrações.",
+          "Demonstra segurança sem arrogância.",
           "Assume responsabilidade pelos erros.",
           "Demonstra coerência entre discurso e prática.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
-      { id:"saude_relacional", title:"Saúde relacional", icon:"💙",
+        abertas:[]},
+      { id:"alinhamento_lid2", title:"Alinhamento e cultura", icon:"⛵",
         perguntas:[
-          "Gera e transmite confiança ao seu redor.",
-          "Promove unidade.",
-          "Lida bem com conflitos.",
+          "Representa bem os valores da organização.",
+          "Demonstra compromisso genuíno com a missão.",
           "Evita manipulação ou controle excessivo.",
-          "Demonstra abertura para ouvir críticas.",
-          "Demonstra cuidado genuíno pelas pessoas.",
+          "Age de forma íntegra e coerente.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
-      { id:"maturidade_lid2", title:"Maturidade emocional", icon:"💜",
+        abertas:[]},
+      { id:"lideranca_qualidade", title:"Qualidade da liderança", icon:"🧭",
         perguntas:[
-          "Demonstra equilíbrio emocional diante das pressões.",
-          "Reage de forma madura a frustrações.",
-          "Demonstra segurança sem arrogância.",
-          "Assume erros quando necessário.",
-        ], abertas:[]},
-      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
+          "Inspira e motiva as pessoas ao seu redor.",
+          "Delega adequadamente, respeitando as capacidades de cada um.",
+          "Investe no desenvolvimento das pessoas que lidera.",
+          "Toma decisões de forma equilibrada e justa.",
+          "Reconhece as contribuições da equipe.",
+        ],
+        abertas:["O que esta pessoa faz como líder que mais impacta positivamente você?","Que mudança você acredita que tornaria esta liderança ainda mais efetiva?"]},
+      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️",
         perguntas:[
-          "Percebo sinais de sobrecarga.",
+          "Percebo sinais de sobrecarga nesta pessoa.",
           "Percebo sinais de isolamento.",
           "Percebo sinais de desgaste emocional.",
           "Percebo perda de motivação.",
           "Percebo tensões relacionais recorrentes.",
-          "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
+          "Esta pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+        abertas:[],isRisk:true},
     ]},
 ];
 
-// ─── TEMPLATE NEUTRO (Organizacional) ────────────────────────────────
-// Mesmas perguntas do DEFAULT_FORMS com linguagem não-missionária
-// Para uso futuro quando a seleção de template for implementada no onboarding
 const DEFAULT_FORMS_NEUTRO = [
   { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
     blocos:[
@@ -656,6 +694,136 @@ async function saveSharedReport(orgId, data) {
     });
     return id;
   } catch(e) { console.error("saveSharedReport:", e); return null; }
+}
+
+// ─── FUNÇÕES / CARGOS ────────────────────────────────────────────
+async function loadFuncoes(orgId) {
+  try {
+    const rows = await sbFetch(`org_funcoes?org_id=eq.${orgId}&select=*&order=nome.asc`);
+    return rows || [];
+  } catch(e) { return []; }
+}
+
+async function saveFuncao(f) {
+  try {
+    await sbFetch("org_funcoes", {
+      method:"POST", prefer:"resolution=merge-duplicates,return=minimal",
+      body:JSON.stringify(f),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function deleteFuncao(id) {
+  try {
+    await sbFetch(`org_funcoes?id=eq.${id}`, { method:"DELETE" });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function updateFuncaoRelacoes(funcaoId, avalia, avaliada_por) {
+  try {
+    await sbFetch(`org_funcoes?id=eq.${funcaoId}`, {
+      method:"PATCH", prefer:"return=minimal",
+      body:JSON.stringify({ avalia, avaliada_por }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, ciclo, forms) {
+  // Para cada usuário com função definida, gera atribuições baseadas nas regras
+  const atribuicoes = [];
+  const formMap = {};
+  forms.forEach(f => { formMap[f.id] = f; });
+
+  for (const u of usuarios) {
+    if (!u.funcao_id) continue;
+    const funcaoU = funcoes.find(f => f.id === u.funcao_id);
+    if (!funcaoU) continue;
+
+    // Autoavaliação — sempre
+    const autoForm = forms.find(f => f.id === "autoavaliacao");
+    if (autoForm) {
+      const avaliado = avaliados.find(a => a.nome === u.nome);
+      if (avaliado) {
+        atribuicoes.push({
+          id: genId(12),
+          org_id: orgId,
+          usuario_id: u.id,
+          avaliado_id: avaliado.id,
+          avaliado_nome: avaliado.nome,
+          form_id: "autoavaliacao",
+          ciclo,
+          concluida: false,
+        });
+      }
+    }
+
+    // Pares — avalia usuários da mesma função
+    const paresForm = forms.find(f => f.id === "pares");
+    if (paresForm) {
+      const pares = usuarios.filter(p => p.id !== u.id && p.funcao_id === u.funcao_id);
+      for (const par of pares) {
+        const avaliado = avaliados.find(a => a.nome === par.nome);
+        if (avaliado) {
+          atribuicoes.push({
+            id: genId(12),
+            org_id: orgId,
+            usuario_id: u.id,
+            avaliado_id: avaliado.id,
+            avaliado_nome: avaliado.nome,
+            form_id: "pares",
+            ciclo,
+            concluida: false,
+          });
+        }
+      }
+    }
+
+    // Liderança — avalia funções que esta função lidera (avalia[])
+    const lidForm = forms.find(f => f.id === "lideranca");
+    if (lidForm && funcaoU.avalia && funcaoU.avalia.length > 0) {
+      const liderados = usuarios.filter(p => funcaoU.avalia.includes(p.funcao_id));
+      for (const liderado of liderados) {
+        const avaliado = avaliados.find(a => a.nome === liderado.nome);
+        if (avaliado) {
+          atribuicoes.push({
+            id: genId(12),
+            org_id: orgId,
+            usuario_id: u.id,
+            avaliado_id: avaliado.id,
+            avaliado_nome: avaliado.nome,
+            form_id: "lideranca",
+            ciclo,
+            concluida: false,
+          });
+        }
+      }
+    }
+
+    // Pelos liderados — avalia quem a lidera (avaliada_por[])
+    const lidadosForm = forms.find(f => f.id === "liderados");
+    if (lidadosForm && funcaoU.avaliada_por && funcaoU.avaliada_por.length > 0) {
+      const lideres = usuarios.filter(p => funcaoU.avaliada_por.includes(p.funcao_id));
+      for (const lider of lideres) {
+        const avaliado = avaliados.find(a => a.nome === lider.nome);
+        if (avaliado) {
+          atribuicoes.push({
+            id: genId(12),
+            org_id: orgId,
+            usuario_id: u.id,
+            avaliado_id: avaliado.id,
+            avaliado_nome: avaliado.nome,
+            form_id: "liderados",
+            ciclo,
+            concluida: false,
+          });
+        }
+      }
+    }
+  }
+  return atribuicoes;
 }
 
 async function loadSharedReport(id) {
@@ -1042,23 +1210,7 @@ function LinkCard({label,link,color="#2563eb"}){
   );
 }
 
-function ScBar({label,score,isRisk}){
-  if(isRisk){
-    const noAlert=score===0||score<=1.5;
-    return(
-      <div style={{marginBottom:16}}>
-        <div style={{fontSize:13,color:"#475569",fontWeight:600,marginBottom:2}}>{label}</div>
-        <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>Presença de sinais de alerta observados pelo grupo</div>
-        <div style={{background:noAlert?"#f0fdf4":"#fef3c7",border:`1px solid ${noAlert?"#bbf7d0":"#fde68a"}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:22}}>{noAlert?"✅":"⚠️"}</span>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,color:noAlert?"#059669":"#d97706"}}>{noAlert?"Nenhum sinal de alerta identificado":"Alguns sinais merecem atenção"}</div>
-            <div style={{fontSize:11,color:noAlert?"#16a34a":"#b45309",marginTop:2}}>{noAlert?"O grupo não observou comportamentos preocupantes neste ciclo.":"Considere uma conversa de acompanhamento com essa pessoa."}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+function ScBar({label,score}){
   return(
     <div style={{marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
@@ -1068,7 +1220,6 @@ function ScBar({label,score,isRisk}){
       <div style={{background:"#e2e8f0",borderRadius:99,height:8}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:99,transition:"width 0.6s ease"}}/></div>
     </div>
   );
-}
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────
@@ -1203,6 +1354,8 @@ export default function App(){
   const [cfg,setCfg]=useState(null);
   const [showAdminPass,setShowAdminPass]=useState(false);
   const [showUpgradeModal,setShowUpgradeModal]=useState(false);
+  const [funcoes,setFuncoes]=useState([]); // [{id, nome, avalia:[], avaliada_por:[]}]
+  const [newFuncao,setNewFuncao]=useState("");
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
@@ -1464,6 +1617,7 @@ export default function App(){
     if(orgP===o.adminPassword){
       setOrgE(false);setOrg(o);
       const f=await loadForms(o.id,o.orgType);const r=await loadResps(o.id);
+        const fns=await loadFuncoes(o.id);setFuncoes(fns);
       const cl=await loadCustomLinks2(o.id);
       const sl=o.scaleLabels||DEFAULT_SCALE_LABELS;
       const sm=o.scaleModel||"frequencia";
@@ -1766,6 +1920,7 @@ export default function App(){
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
           <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
+          <button onClick={async()=>{const fns=await loadFuncoes(org.id);setFuncoes(fns);setScreen("funcoes");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🏷️ Funções</button>
           <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🔑 Usuários</button>
           <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
           <button onClick={()=>{setScreen("home");setOrg(null);}} style={{border:"1.5px solid rgba(255,255,255,0.18)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(0,0,0,0.18)"}}>Sair</button>
@@ -1825,9 +1980,9 @@ export default function App(){
         {dashTab==="resultados"&&(dData.length===0?(
           <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Formulário"} · {dAvaliado?avaliados.find(a=>a.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>Frequência de cada resposta em todas as perguntas · {dForm?.title||""} · {dci}</p><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
         {/* Status */}
@@ -1907,18 +2062,14 @@ export default function App(){
         </div>
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏛️ Tipo de organização</h3>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>A diferença fundamental entre esses dois modelos é a linguagem mais adequada para cada tipo de organização.</p>
-          <div style={{display:"flex",gap:12}}>
-            {[{id:"religiosa",label:"⛪ Religiosa",desc:"Igrejas, missões, equipes ministeriais"},{id:"nao_religiosa",label:"🏢 Não-religiosa",desc:"Empresas, ONGs, escolas, equipes seculares"}].map(op=>{
-              const active=(cfg.orgType||"religiosa")===op.id;
-              return(
-                <div key={op.id} onClick={()=>setCfg(p=>({...p,orgType:op.id}))}
-                  style={{flex:1,borderRadius:R.lg,border:`2px solid ${active?pc:"#e2e8f0"}`,background:active?"#eff6ff":"#fff",padding:"14px 16px",cursor:"pointer",transition:"all 0.18s"}}>
-                  <div style={{fontWeight:700,fontSize:14,color:active?"#1e3a8a":"#334155",marginBottom:4}}>{op.label}</div>
-                  <div style={{fontSize:12,color:"#64748b"}}>{op.desc}</div>
-                </div>
-              );
-            })}
+          <p style={{fontSize:12,color:"#64748b",marginBottom:12,lineHeight:1.6}}>Define a linguagem dos formulários de avaliação. Esta configuração é definida na criação e não pode ser alterada para preservar a consistência histórica dos dados.</p>
+          <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:R.md,background:"#eff6ff",border:"1px solid #dbeafe"}}>
+            <span style={{fontSize:22}}>{(cfg.orgType||"religiosa")==="religiosa"?"⛪":"🏢"}</span>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e3a8a"}}>{(cfg.orgType||"religiosa")==="religiosa"?"Organização Religiosa":"Organização Não-religiosa"}</div>
+              <div style={{fontSize:12,color:"#64748b"}}>{(cfg.orgType||"religiosa")==="religiosa"?"Igrejas, missões, equipes ministeriais — linguagem ministerial":"Empresas, ONGs, escolas — linguagem profissional"}</div>
+            </div>
+            <span style={{marginLeft:"auto",fontSize:11,background:"#dbeafe",color:"#1e40af",padding:"3px 8px",borderRadius:6,fontWeight:600}}>Definido</span>
           </div>
         </div>
         <div style={{...card,marginBottom:16}}>
@@ -2604,6 +2755,129 @@ export default function App(){
   );}
 
   // ── USUARIOS MANAGEMENT ──
+  // ── TELA DE FUNÇÕES/CARGOS ───────────────────────────────────────
+  if(screen==="funcoes"&&org){
+    return(
+      <div style={{...pg,padding:0,background:"#f8f9fa"}}>
+        <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
+          <div><div style={{fontWeight:800,fontSize:15}}>🏷️ Funções — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre as funções e defina quem avalia quem automaticamente</div></div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={async()=>{
+              const us=await loadUsuarios(org.id);setUsuarios(us);
+              const ats2=await loadAtribuicoesOrg(org.id,org.activeCiclo||CICLOS[0]);
+              const cicloAtivo=org.activeCiclo||CICLOS[0];
+              const atsForms=ats2.filter(a=>a.ciclo===cicloAtivo);
+              if(atsForms.length>0&&!window.confirm(`Já existem ${atsForms.length} atribuições para o ciclo ${cicloAtivo}. Deseja gerar novas atribuições automaticamente? As existentes NÃO serão removidas, apenas acrescentadas.`)) return;
+              const avs=await loadAvaliados(org.id);
+              const novas=await gerarAtribuicoesAutomaticas(org.id,us,funcoes,avs,cicloAtivo,forms);
+              if(novas.length===0){alert("Nenhuma atribuição gerada. Verifique se os usuários têm funções definidas e se as funções têm relações configuradas.");return;}
+              let salvas=0;
+              for(const at of novas){
+                const ok=await saveAtribuicao(at);
+                if(ok) salvas++;
+              }
+              alert(`✅ ${salvas} atribuições geradas automaticamente para o ciclo ${cicloAtivo}!`);
+            }} style={{...hBtn,background:"#059669",fontWeight:700}}>⚡ Gerar atribuições automáticas</button>
+            <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+          </div>
+        </div>
+        <div style={{maxWidth:900,margin:"0 auto",padding:"20px 16px 60px"}}>
+          {/* Info */}
+          <div style={{...card,marginBottom:20,background:"#eff6ff",border:"1px solid #dbeafe"}}>
+            <p style={{fontSize:13,color:"#1e40af",lineHeight:1.7}}>
+              <strong>Como funciona:</strong> Cadastre as funções da organização (ex: Pastor, Coordenador, Voluntário). 
+              Em seguida, defina para cada função quais outras funções ela <strong>avalia</strong> (liderados dela) e por quais ela <strong>é avaliada</strong> (seus líderes). 
+              Depois, ao cadastrar usuários, selecione a função de cada um. 
+              Por fim, clique em <strong>"Gerar atribuições automáticas"</strong> para criar todas as avaliações de uma vez.
+            </p>
+          </div>
+
+          {/* Cadastrar nova função */}
+          <div style={{...card,marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:14}}>➕ Nova função</h3>
+            <div style={{display:"flex",gap:12}}>
+              <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
+              <button onClick={async()=>{
+                if(!newFuncao.trim()) return;
+                const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};
+                await saveFuncao(f);
+                setFuncoes(p=>[...p,f]);
+                setNewFuncao("");
+              }} style={{...btn(pc),whiteSpace:"nowrap"}}>Adicionar</button>
+            </div>
+          </div>
+
+          {/* Lista de funções com relações */}
+          {funcoes.length===0?(
+            <div style={{...card,textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
+              <div style={{fontSize:36,marginBottom:12}}>🏷️</div>
+              <p style={{fontSize:14}}>Nenhuma função cadastrada ainda.</p>
+              <p style={{fontSize:12,marginTop:6}}>Adicione as funções da organização acima para começar.</p>
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {funcoes.map(f=>(
+                <div key={f.id} style={{...card}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                    <div style={{fontWeight:700,fontSize:15,color:"#1e3a8a"}}>{f.nome}</div>
+                    <button onClick={async()=>{
+                      if(!window.confirm(`Remover a função "${f.nome}"? Os usuários com esta função ficarão sem função definida.`)) return;
+                      await deleteFuncao(f.id);
+                      setFuncoes(p=>p.filter(x=>x.id!==f.id));
+                    }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",color:"#dc2626",fontSize:12,fontWeight:600}}>Remover</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                    {/* Avalia */}
+                    <div>
+                      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Esta função avalia (liderados):</p>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {funcoes.filter(x=>x.id!==f.id).map(x=>{
+                          const checked=(f.avalia||[]).includes(x.id);
+                          return(
+                            <label key={x.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"#334155"}}>
+                              <input type="checkbox" checked={checked} onChange={async()=>{
+                                const novaLista=checked?(f.avalia||[]).filter(id=>id!==x.id):[...(f.avalia||[]),x.id];
+                                await updateFuncaoRelacoes(f.id,novaLista,f.avaliada_por||[]);
+                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avalia:novaLista}:fn));
+                              }} style={{width:14,height:14}}/>
+                              {x.nome}
+                            </label>
+                          );
+                        })}
+                        {funcoes.filter(x=>x.id!==f.id).length===0&&<p style={{fontSize:12,color:"#94a3b8"}}>Cadastre mais funções para definir relações.</p>}
+                      </div>
+                    </div>
+                    {/* Avaliada por */}
+                    <div>
+                      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>É avaliada por (líderes):</p>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {funcoes.filter(x=>x.id!==f.id).map(x=>{
+                          const checked=(f.avaliada_por||[]).includes(x.id);
+                          return(
+                            <label key={x.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"#334155"}}>
+                              <input type="checkbox" checked={checked} onChange={async()=>{
+                                const novaLista=checked?(f.avaliada_por||[]).filter(id=>id!==x.id):[...(f.avaliada_por||[]),x.id];
+                                await updateFuncaoRelacoes(f.id,f.avalia||[],novaLista);
+                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avaliada_por:novaLista}:fn));
+                              }} style={{width:14,height:14}}/>
+                              {x.nome}
+                            </label>
+                          );
+                        })}
+                        {funcoes.filter(x=>x.id!==f.id).length===0&&<p style={{fontSize:12,color:"#94a3b8"}}>Cadastre mais funções para definir relações.</p>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <PoweredBy/>
+      </div>
+    );
+  }
+
   if(screen==="usuarios"&&org){
     const pc2=org.primaryColor||"#2563eb";
     return(
@@ -2623,7 +2897,7 @@ export default function App(){
           {/* Add user */}
           <div style={{...card,marginBottom:20}}>
             <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>➕ Novo usuário</h3>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label>
                 <input value={newUsuario.nome} onChange={e=>setNewUsuario(p=>({...p,nome:e.target.value}))} style={inp} placeholder="Nome completo"/></div>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>EMAIL *</label>
@@ -2633,13 +2907,18 @@ export default function App(){
                   <input type={showPwd?"text":"password"} value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={{...inp,paddingRight:44}} placeholder="Senha inicial"/>
                   <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8"}}>{showPwd?"🙈":"👁️"}</button>
                 </div></div>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
+                <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
+                  <option value="">Sem função definida</option>
+                  {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select></div>
             </div>
             <button onClick={async()=>{
               if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()) return;
-              const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),ativo:true,created_at:new Date().toISOString()};
+              const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
               await saveUsuario(u);
               setUsuarios(p=>[...p,u]);
-              setNewUsuario({nome:"",email:"",senha:""});
+              setNewUsuario({nome:"",email:"",senha:"",funcao_id:""});
             }} style={{...btn("#0891b2"),marginRight:8}}>➕ Adicionar usuário</button>
             <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...btn("#16a34a")}}>📥 Importar Excel</button>
           </div>
