@@ -2983,13 +2983,13 @@ export default function App(){
         <div style={{background:"#fff",borderRadius:R.lg,padding:"28px 28px 24px",border:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
           <div style={{marginBottom:16}}>
             <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>Email</label>
-            <input type="email" placeholder="seu@email.com" value={loginEmail}
+            <input autoComplete="username" type="text" inputMode="email" placeholder="seu@email.com" value={loginEmail}
               onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
               style={{width:"100%",padding:"10px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#d1d5db"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff",color:"#111827"}}/>
           </div>
           <div style={{marginBottom:loginErr?8:20,position:"relative"}}>
             <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>Senha</label>
-            <input type={showPwd?"text":"password"} placeholder="••••••••" value={loginSenha}
+            <input autoComplete="current-password" type={showPwd?"text":"password"} placeholder="••••••••" value={loginSenha}
               onChange={e=>setLoginSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
               style={{width:"100%",padding:"10px 44px 10px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#d1d5db"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff",color:"#111827"}}/>
             <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:12,bottom:10,background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9ca3af",padding:2}}>{showPwd?"🙈":"👁️"}</button>
