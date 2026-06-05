@@ -1049,7 +1049,7 @@ async function updateUsuarioSenha(usuarioId, novaSenha) {
 
 // ─── IMPORTAÇÃO EM MASSA ─────────────────────────────────────
 // Importa lista de {nome, email, funcao} — cria usuario + avaliado vinculados
-async function importarUsuarios(orgId, lista) {
+async function importarUsuarios(orgId, lista, orgSlug) {
   const SENHA_PADRAO = "avalie360";
   const hash = simpleHash(SENHA_PADRAO);
   const resultados = { criados: 0, erros: [] };
@@ -1438,7 +1438,7 @@ export default function App(){
   const [atribuicoes,setAtribuicoes]=useState([]);
   const [atribucaoAtual,setAtribucaoAtual]=useState(null);
   const [usuarios,setUsuarios]=useState([]);
-  const [newUsuario,setNewUsuario]=useState({nome:"",email:"",senha:""});
+  const [newUsuario,setNewUsuario]=useState({nome:"",email:"",senha:"avalie360"});
   const [loginEmail,setLoginEmail]=useState("");
   const [loginSenha,setLoginSenha]=useState("");
   const [loginErr,setLoginErr]=useState("");
@@ -3193,7 +3193,10 @@ export default function App(){
             </div>
             {showHelpFuncoes&&(
               <div style={{background:"#eff6ff",borderRadius:10,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:13,color:"#1e40af",lineHeight:1.7}}>
-                <strong>Como funciona:</strong> Cadastre as funções (cargos) da organização. Para cada função, defina quais outras ela <strong>avalia</strong> (seus liderados) e por quais ela <strong>é avaliada</strong> (seus líderes). Depois de cadastrar os usuários com suas funções, clique em <strong>"⚡ Gerar atribuições automáticas"</strong> para criar todas as avaliações do ciclo de uma vez.
+                <strong>Como funciona:</strong> Cadastre as funções (cargos) da organização. Para cada função, defina quais outras ela <strong>avalia</strong> (seus liderados) e por quais ela <strong>é avaliada</strong> (seus líderes).<br/>
+                <span style={{display:"block",marginTop:8,padding:"8px 12px",background:"#dbeafe",borderRadius:8,fontSize:12}}>
+                  💡 <strong>Avaliação de Pares</strong> e <strong>Autoavaliação</strong> são geradas automaticamente — não precisam ser configuradas aqui. Pares: pessoas da <em>mesma função</em> se avaliam entre si. Auto: cada pessoa avalia a si mesma.
+                </span>
               </div>
             )}
             {/* Cadastrar nova função */}
@@ -3265,7 +3268,7 @@ export default function App(){
             </div>
             {showHelpUsuarios&&(
               <div style={{background:"#f0fdf4",borderRadius:10,padding:"12px 16px",border:"1px solid #bbf7d0",marginBottom:16,fontSize:13,color:"#065f46",lineHeight:1.7}}>
-                Cada colaborador precisa de um login para acessar o sistema e responder suas avaliações. O email é o identificador — cada pessoa deve ter um email único. A senha inicial pode ser simples (ex: "avalie360") e cada pessoa pode alterá-la no primeiro acesso. Você também pode importar uma lista de colaboradores via planilha Excel/CSV usando o botão <strong>"📥 Importar Excel"</strong> no topo.
+                Cada colaborador precisa de um login para acessar o sistema. O email é o identificador único. Use uma senha padrão simples — cada pessoa pode alterá-la após o primeiro acesso. Você também pode importar em massa via <strong>"📥 Importar CSV"</strong>.
               </div>
             )}
             {/* Info de acesso */}
@@ -3275,27 +3278,38 @@ export default function App(){
             {/* Form novo usuário */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label>
-                <input value={newUsuario.nome} onChange={e=>setNewUsuario(p=>({...p,nome:e.target.value}))} style={inp} placeholder="Nome completo"/></div>
+                <input autoComplete="off" value={newUsuario.nome} onChange={e=>setNewUsuario(p=>({...p,nome:e.target.value}))} style={inp} placeholder="Nome completo"/></div>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>EMAIL *</label>
-                <input type="email" value={newUsuario.email} onChange={e=>setNewUsuario(p=>({...p,email:e.target.value}))} style={inp} placeholder="email@org.com"/></div>
-              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA *</label>
+                <input autoComplete="off" type="text" inputMode="email" value={newUsuario.email} onChange={e=>setNewUsuario(p=>({...p,email:e.target.value}))} style={inp} placeholder="email@org.com"/></div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>
+                  SENHA INICIAL
+                  <span title="A senha padrão 'avalie360' já vem preenchida. O colaborador verá um aviso para alterá-la no primeiro acesso." style={{marginLeft:6,cursor:"help",display:"inline-flex",alignItems:"center",justifyContent:"center",width:15,height:15,borderRadius:"50%",background:"#94a3b8",color:"#fff",fontSize:9,fontWeight:700,verticalAlign:"middle"}}>?</span>
+                </label>
                 <div style={{position:"relative"}}>
-                  <input type={showPwd?"text":"password"} value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={{...inp,paddingRight:44}} placeholder="Senha inicial"/>
+                  <input autoComplete="new-password" type={showPwd?"text":"password"} value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={{...inp,paddingRight:44}} placeholder="avalie360"/>
                   <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8"}}>{showPwd?"🙈":"👁️"}</button>
-                </div></div>
+                </div>
+              </div>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
                 <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
                   <option value="">Sem função</option>
                   {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
                 </select></div>
             </div>
-            <button onClick={async()=>{
-              if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()){alert("Preencha nome, email e senha.");return;}
-              const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
-              await saveUsuario(u);
-              setUsuarios(p=>[...p,u]);
-              setNewUsuario({nome:"",email:"",senha:"",funcao_id:""});
-            }} style={{...btn("#0891b2")}}>➕ Adicionar colaborador</button>
+            <div style={{background:"#fefce8",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#92400e",marginBottom:12}}>
+              🔑 A senha padrão é <strong>"avalie360"</strong>. O colaborador verá um aviso para alterá-la no primeiro acesso.
+            </div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button onClick={async()=>{
+                if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()){alert("Preencha nome, email e senha.");return;}
+                const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
+                await saveUsuario(u);
+                setUsuarios(p=>[...p,u]);
+                setNewUsuario({nome:"",email:"",senha:"avalie360",funcao_id:""});
+              }} style={{...btn("#0891b2")}}>➕ Adicionar colaborador</button>
+              <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...btn("#16a34a")}}>📥 Importar CSV</button>
+            </div>
 
             {/* Lista de usuários */}
             {usuarios.length>0&&(
@@ -3445,7 +3459,7 @@ export default function App(){
         setImportando(false);
         return;
       }
-      const result=await importarUsuarios(org.id,listaFinal);
+      const result=await importarUsuarios(org.id,listaFinal,org.slug||"avalie360");
       // Recarregar usuários e avaliados
       const [us,avs]=await Promise.all([loadUsuarios(org.id),loadAvaliados(org.id)]);
       setUsuarios(us);setAvaliados(avs);
@@ -3508,7 +3522,7 @@ export default function App(){
                 ⚠️ <strong>Antes de fazer upload:</strong> No Excel, vá em <strong>Arquivo → Salvar Como → CSV (separado por vírgulas)</strong>. O sistema aceita arquivos <strong>.csv</strong>.
               </div>
               <p style={{fontSize:12,color:"#64748b",marginBottom:4}}>
-                🔑 Todos os usuários serão criados com a senha padrão <strong>"avalie360"</strong>. Cada pessoa poderá alterá-la no primeiro acesso.
+                🔑 Todos os usuários serão criados com a senha padrão <strong>"avalie360"</strong>. Cada pessoa verá um aviso para alterá-la no primeiro acesso.
               </p>
               <p style={{fontSize:12,color:"#64748b"}}>
                 👥 Cada pessoa importada será criada como <strong>usuário</strong> (pode fazer login e avaliar) e como <strong>avaliado</strong> (pode ser avaliado). Você define quem avalia quem depois.
