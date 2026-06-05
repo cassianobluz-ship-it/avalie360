@@ -785,13 +785,12 @@ async function updateFuncaoRelacoes(funcaoId, avalia, avaliada_por) {
   }
 }
 
-async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, ciclo, forms) {
-  // Para cada usuário com função definida, gera atribuições baseadas nas regras
+async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, ciclo, forms) {
   const atribuicoes = [];
-  const formMap = {};
-  forms.forEach(f => { formMap[f.id] = f; });
+  // Só usuários que participam do ciclo
+  const participantes = usuarios.filter(u => u.participa_ciclo !== false);
 
-  for (const u of usuarios) {
+  for (const u of participantes) {
     if (!u.funcao_id) continue;
     const funcaoU = funcoes.find(f => f.id === u.funcao_id);
     if (!funcaoU) continue;
@@ -799,81 +798,49 @@ async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, 
     // Autoavaliação — sempre
     const autoForm = forms.find(f => f.id === "autoavaliacao");
     if (autoForm) {
-      const avaliado = avaliados.find(a => a.nome === u.nome);
-      if (avaliado) {
-        atribuicoes.push({
-          id: genId(12),
-          org_id: orgId,
-          usuario_id: u.id,
-          avaliado_id: avaliado.id,
-          avaliado_nome: avaliado.nome,
-          form_id: "autoavaliacao",
-          ciclo,
-          concluida: false,
-        });
-      }
+      atribuicoes.push({
+        id: genId(12), org_id: orgId, usuario_id: u.id,
+        avaliado_id: u.id, avaliado_nome: u.nome,
+        form_id: "autoavaliacao", ciclo, concluida: false,
+      });
     }
 
-    // Pares — avalia usuários da mesma função
+    // Pares — mesma função, excluindo si mesmo
     const paresForm = forms.find(f => f.id === "pares");
     if (paresForm) {
-      const pares = usuarios.filter(p => p.id !== u.id && p.funcao_id === u.funcao_id);
+      const pares = participantes.filter(p => p.id !== u.id && p.funcao_id === u.funcao_id);
       for (const par of pares) {
-        const avaliado = avaliados.find(a => a.nome === par.nome);
-        if (avaliado) {
-          atribuicoes.push({
-            id: genId(12),
-            org_id: orgId,
-            usuario_id: u.id,
-            avaliado_id: avaliado.id,
-            avaliado_nome: avaliado.nome,
-            form_id: "pares",
-            ciclo,
-            concluida: false,
-          });
-        }
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: par.id, avaliado_nome: par.nome,
+          form_id: "pares", ciclo, concluida: false,
+        });
       }
     }
 
     // Liderança — avalia funções que esta função lidera (avalia[])
     const lidForm = forms.find(f => f.id === "lideranca" || f.id === "lideranca_direta");
     if (lidForm && funcaoU.avalia && funcaoU.avalia.length > 0) {
-      const liderados = usuarios.filter(p => funcaoU.avalia.includes(p.funcao_id));
+      const liderados = participantes.filter(p => funcaoU.avalia.includes(p.funcao_id));
       for (const liderado of liderados) {
-        const avaliado = avaliados.find(a => a.nome === liderado.nome);
-        if (avaliado) {
-          atribuicoes.push({
-            id: genId(12),
-            org_id: orgId,
-            usuario_id: u.id,
-            avaliado_id: avaliado.id,
-            avaliado_nome: avaliado.nome,
-            form_id: lidForm.id,
-            ciclo,
-            concluida: false,
-          });
-        }
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: liderado.id, avaliado_nome: liderado.nome,
+          form_id: lidForm.id, ciclo, concluida: false,
+        });
       }
     }
 
     // Pelos liderados — avalia quem a lidera (avaliada_por[])
     const lidadosForm = forms.find(f => f.id === "liderados");
     if (lidadosForm && funcaoU.avaliada_por && funcaoU.avaliada_por.length > 0) {
-      const lideres = usuarios.filter(p => funcaoU.avaliada_por.includes(p.funcao_id));
+      const lideres = participantes.filter(p => funcaoU.avaliada_por.includes(p.funcao_id));
       for (const lider of lideres) {
-        const avaliado = avaliados.find(a => a.nome === lider.nome);
-        if (avaliado) {
-          atribuicoes.push({
-            id: genId(12),
-            org_id: orgId,
-            usuario_id: u.id,
-            avaliado_id: avaliado.id,
-            avaliado_nome: avaliado.nome,
-            form_id: "liderados",
-            ciclo,
-            concluida: false,
-          });
-        }
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: lider.id, avaliado_nome: lider.nome,
+          form_id: "liderados", ciclo, concluida: false,
+        });
       }
     }
   }
@@ -1333,7 +1300,7 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
       setAts(p=>p.filter(a=>a.id!==exists.id));
     } else {
       const avObj = avaliados.find(a=>a.id===avaliadoId);
-      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",avaliado_funcao:avObj?.funcao||"",concluida:false,created_at:new Date().toISOString()};
+      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",avaliado_funcao:avObj?.funcao_id||"",concluida:false,created_at:new Date().toISOString()};
       await saveAtribuicao(na);
       setAts(p=>[...p,na]);
     }
@@ -2171,7 +2138,7 @@ export default function App(){
         <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={36}/><div><div style={{fontWeight:800,fontSize:15,letterSpacing:"-0.01em"}}>{org.name}</div><div style={{fontSize:11,opacity:0.8,marginTop:1}}>Painel administrativo · Avaliação 360°</div></div></div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
-          <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
+          
           <button onClick={async()=>{const fns=await loadFuncoes(org.id);setFuncoes(fns);const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("equipe");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Equipe</button>
           <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
           <button onClick={()=>{setScreen("home");setOrg(null);}} style={{border:"1.5px solid rgba(255,255,255,0.18)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(0,0,0,0.18)"}}>Sair</button>
@@ -2198,14 +2165,14 @@ export default function App(){
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
-            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=><option key={u.id} value={u.id}>{u.nome}{u.funcao_id?` — ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:""}</option>)}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
               <button onClick={exportXLSX} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>📊 Excel</button>
               <button onClick={exportHTML} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:"#7c3aed",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>📄 HTML</button>
               <button onClick={shareReport} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:repCopied?"#16a34a":"#0891b2",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,transition:"background 0.2s"}}>{repCopied==="saving"?"⏳":repCopied?"✓ Link!":"🔗 Compartilhar"}</button>
               {dAvaliado&&dData.length>0&&(
-                <button onClick={()=>printIndividualPDF({org,avaliado:avaliados.find(a=>a.id===dAvaliado)?.nome||dAvaliado,ciclo:dci,formTitle:dForm?.title||"",bStats,mgeral,abList,respsCount:dData.length})}
+                <button onClick={()=>printIndividualPDF({org,avaliado:usuarios.find(u=>u.id===dAvaliado)?.nome||dAvaliado,ciclo:dci,formTitle:dForm?.title||"",bStats,mgeral,abList,respsCount:dData.length})}
                   style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>🖨️ PDF</button>
               )}
             </div>
@@ -2233,7 +2200,7 @@ export default function App(){
         {dashTab==="resultados"&&(dData.length===0?(
           <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📊 Média por área</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Formulário"} · {dAvaliado?avaliados.find(a=>a.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📊 Média por área</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Formulário"} · {dAvaliado?usuarios.find(u=>u.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>Frequência de cada resposta em todas as perguntas · {dForm?.title||""} · {dci}</p><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
@@ -2241,7 +2208,7 @@ export default function App(){
         {/* Radar */}
         {dashTab==="radar"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
           <h3 style={{color:"#1e3a8a",fontSize:15,margin:"0 0 6px",fontWeight:700}}>🕸️ Radar por Dimensões</h3>
-          <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>{dForm?.title||"Formulário"} · {dAvaliado?avaliados.find(a=>a.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>{dForm?.title||"Formulário"} · {dAvaliado?usuarios.find(u=>u.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p>
           {radarData.length<3?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>🕸️</div><p style={{fontSize:13}}>São necessárias pelo menos 3 dimensões para exibir o radar.</p></div>):(
             <ResponsiveContainer width="100%" height={360}>
               <RadarChart data={radarData} margin={{top:20,right:30,bottom:20,left:30}}>
@@ -2351,7 +2318,7 @@ export default function App(){
         const steps=[
           {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação."},
           {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores com suas funções.\n\n💡 Autoavaliação e Avaliação de Pares são geradas automaticamente — você não precisa configurar isso."},
-          {icon:"👤",title:"Passo 2 — Cadastre os avaliados",desc:"Clique em \"👥 Avaliados\" no menu superior. Cadastre quem será avaliado — você pode importar via CSV. Cada avaliado receberá um relatório individual."},
+          {icon:"👤",title:"Passo 2 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um tem um toggle \"No ciclo\" — desmarque quem não deve participar desta rodada de avaliação."},
           {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Clique em \"⚙️ Config\" no menu superior. Defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links corretamente."},
           {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"🔗 Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto para começar!"},
         ];
@@ -3190,16 +3157,38 @@ export default function App(){
     const pc2=org.primaryColor||"#2563eb";
 
     async function gerarAtribuicoes(){
-      const ats2=await loadAtribuicoesOrg(org.id,org.activeCiclo||CICLOS[0]);
       const cicloAtivo=org.activeCiclo||CICLOS[0];
+      // Recarregar dados frescos do banco
+      const [usuariosAtuais, funcoesAtuais] = await Promise.all([
+        loadUsuarios(org.id),
+        loadFuncoes(org.id),
+      ]);
+      setUsuarios(usuariosAtuais);
+      setFuncoes(funcoesAtuais);
+
+      // Diagnóstico detalhado
+      const participantes=usuariosAtuais.filter(u=>u.participa_ciclo!==false);
+      const semFuncao=participantes.filter(u=>!u.funcao_id);
+      if(usuariosAtuais.length===0){alert("Nenhum colaborador cadastrado. Cadastre os colaboradores antes de gerar atribuições.");return;}
+      if(funcoesAtuais.length===0){alert("Nenhuma função cadastrada. Cadastre as funções antes de gerar atribuições.");return;}
+      if(participantes.length===0){alert("Nenhum colaborador marcado para participar do ciclo.");return;}
+      if(semFuncao.length>0){
+        const nomes=semFuncao.map(u=>u.nome).join(", ");
+        if(!window.confirm(`${semFuncao.length} colaborador(es) sem função definida serão ignorados: ${nomes}.\n\nDeseja continuar?`))return;
+      }
+
+      const ats2=await loadAtribuicoesOrg(org.id,cicloAtivo);
       const atsForms=ats2.filter(a=>a.ciclo===cicloAtivo);
       if(atsForms.length>0&&!window.confirm(`Já existem ${atsForms.length} atribuições para o ciclo ${cicloAtivo}. Deseja gerar novas? As existentes NÃO serão removidas.`)) return;
-      const avs=await loadAvaliados(org.id);
-      const novas=await gerarAtribuicoesAutomaticas(org.id,usuarios,funcoes,avs,cicloAtivo,forms);
-      if(novas.length===0){alert("Nenhuma atribuição gerada. Verifique se os usuários têm funções definidas e se as funções têm relações configuradas.");return;}
+
+      const novas=await gerarAtribuicoesAutomaticas(org.id,usuariosAtuais,funcoesAtuais,cicloAtivo,forms);
+      if(novas.length===0){
+        alert("Nenhuma atribuição gerada. Verifique:\n• Os colaboradores têm funções definidas?\n• As funções têm relações de liderança configuradas?");
+        return;
+      }
       let salvas=0;
       for(const at of novas){const ok=await saveAtribuicao(at);if(ok)salvas++;}
-      alert(`✅ ${salvas} atribuições geradas automaticamente para o ciclo ${cicloAtivo}!`);
+      alert(`✅ ${salvas} atribuições geradas para o ciclo ${cicloAtivo}!`);
     }
 
     return(
@@ -3232,7 +3221,7 @@ export default function App(){
               </div>
             )}
             <div style={{background:"#dbeafe",borderRadius:10,padding:"10px 14px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:12,color:"#1e40af",lineHeight:1.6}}>
-              💡 <strong>Geração automática:</strong> <strong>Autoavaliação</strong> (cada pessoa avalia a si mesma) e <strong>Avaliação de Pares</strong> (pessoas da mesma função se avaliam entre si) são criadas automaticamente ao clicar em ⚡ — não precisam ser configuradas aqui.
+              💡 <strong>Autoavaliação</strong> (cada pessoa avalia a si mesma) e <strong>Avaliação de Pares</strong> (pessoas da mesma função se avaliam entre si) são criadas automaticamente e não precisam ser configuradas.
             </div>
             {/* Cadastrar nova função */}
             <div style={{display:"flex",gap:12,marginBottom:16}}>
@@ -3364,17 +3353,25 @@ export default function App(){
                         <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
                         <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:""}</div>
                       </div>
+                      <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,color:u.participa_ciclo!==false?"#059669":"#94a3b8",fontWeight:600,flexShrink:0}} title="Participar do ciclo de avaliação">
+                        <input type="checkbox" checked={u.participa_ciclo!==false} onChange={async()=>{
+                          const novo=u.participa_ciclo===false;
+                          await sbFetch(`usuarios?id=eq.${u.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({participa_ciclo:novo})});
+                          setUsuarios(p=>p.map(x=>x.id===u.id?{...x,participa_ciclo:novo}:x));
+                        }} style={{cursor:"pointer"}}/>
+                        {u.participa_ciclo!==false?"No ciclo":"Fora do ciclo"}
+                      </label>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                         <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
                           style={{padding:"4px 9px",borderRadius:7,border:"2px solid #6366f1",background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
                         <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
-                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>📋 Avaliações</button>
+                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}} title="Ver e gerenciar atribuições individuais deste colaborador">⚙️ Atribuições</button>
                         <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
                           style={{padding:"4px 9px",borderRadius:7,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
                       </div>
                     </div>
                     {showAtribuicoes===u.id&&(
-                      <AtribuicoesEditor usuario={u} org={org} forms={forms} avaliados={avaliados} ciclo={org.activeCiclo||CICLOS[0]} inp={inp} btn={btn} pc={pc2}/>
+                      <AtribuicoesEditor usuario={u} org={org} forms={forms} avaliados={usuarios.filter(x=>x.participa_ciclo!==false&&x.id!==u.id)} ciclo={org.activeCiclo||CICLOS[0]} inp={inp} btn={btn} pc={pc2}/>
                     )}
                   </div>
                 ))}
