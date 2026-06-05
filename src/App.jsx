@@ -1454,6 +1454,8 @@ export default function App(){
   // Tela Equipe — helps
   const [showHelpFuncoes,setShowHelpFuncoes]=useState(false);
   const [showHelpUsuarios,setShowHelpUsuarios]=useState(false);
+  const [gerando,setGerando]=useState(false);
+  const [geradoMsg,setGeradoMsg]=useState("");
   // Notificações
   const [notifTab,setNotifTab]=useState("convite");
   const [notifMsg,setNotifMsg]=useState("");
@@ -3143,38 +3145,32 @@ export default function App(){
     const pc2=org.primaryColor||"#2563eb";
 
     async function gerarAtribuicoes(){
+      setGerando(true);
       const cicloAtivo=org.activeCiclo||CICLOS[0];
-      // Recarregar dados frescos do banco
       const [usuariosAtuais, funcoesAtuais] = await Promise.all([
         loadUsuarios(org.id),
         loadFuncoes(org.id),
       ]);
       setUsuarios(usuariosAtuais);
       setFuncoes(funcoesAtuais);
-
-      // Diagnóstico detalhado
       const participantes=usuariosAtuais.filter(u=>u.participa_ciclo!==false);
       const semFuncao=participantes.filter(u=>!u.funcao_id);
-      if(usuariosAtuais.length===0){alert("Nenhum colaborador cadastrado. Cadastre os colaboradores antes de gerar atribuições.");return;}
-      if(funcoesAtuais.length===0){alert("Nenhuma função cadastrada. Cadastre as funções antes de gerar atribuições.");return;}
-      if(participantes.length===0){alert("Nenhum colaborador marcado para participar do ciclo.");return;}
+      if(usuariosAtuais.length===0){alert("Nenhum colaborador cadastrado.");setGerando(false);return;}
+      if(funcoesAtuais.length===0){alert("Nenhuma função cadastrada.");setGerando(false);return;}
+      if(participantes.length===0){alert("Nenhum colaborador marcado para participar do ciclo.");setGerando(false);return;}
       if(semFuncao.length>0){
         const nomes=semFuncao.map(u=>u.nome).join(", ");
-        if(!window.confirm(`${semFuncao.length} colaborador(es) sem função definida serão ignorados: ${nomes}.\n\nDeseja continuar?`))return;
+        if(!window.confirm(`${semFuncao.length} colaborador(es) sem função serão ignorados: ${nomes}.\n\nDeseja continuar?`)){setGerando(false);return;}
       }
-
-      const ats2=await loadAtribuicoesOrg(org.id,cicloAtivo);
-      const atsForms=ats2.filter(a=>a.ciclo===cicloAtivo);
-      if(atsForms.length>0&&!window.confirm(`Já existem ${atsForms.length} atribuições para o ciclo ${cicloAtivo}. Deseja gerar novas? As existentes NÃO serão removidas.`)) return;
-
       const novas=await gerarAtribuicoesAutomaticas(org.id,usuariosAtuais,funcoesAtuais,cicloAtivo,forms);
       if(novas.length===0){
-        alert("Nenhuma atribuição gerada. Verifique:\n• Os colaboradores têm funções definidas?\n• As funções têm relações de liderança configuradas?");
-        return;
+        alert("Nenhuma atribuição gerada. Verifique se os colaboradores têm funções e se as funções têm relações configuradas.");
+        setGerando(false);return;
       }
       let salvas=0;
       for(const at of novas){const ok=await saveAtribuicao(at);if(ok)salvas++;}
-      alert(`✅ ${salvas} atribuições geradas para o ciclo ${cicloAtivo}!`);
+      setGeradoMsg(`✅ Ciclo enviado para ${salvas} avaliações. Use 🔔 Notificações em Config para avisar os colaboradores.`);
+      setGerando(false);
     }
 
     return(
@@ -3183,13 +3179,17 @@ export default function App(){
         <div style={{...hdr(pc2),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>👥 Equipe — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Configure funções e colaboradores em sequência</div></div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={gerarAtribuicoes} style={{...hBtn,background:"#059669",fontWeight:700}}>⚡ Gerar atribuições automáticas</button>
+            <button onClick={gerarAtribuicoes} disabled={gerando||!!geradoMsg}
+              style={{...hBtn,background:geradoMsg?"#059669":gerando?"#6b7280":"#059669",fontWeight:700,opacity:(gerando||!!geradoMsg)?0.8:1,cursor:(gerando||!!geradoMsg)?"not-allowed":"pointer"}}>
+              {gerando?"⏳ Gerando…":geradoMsg?"✅ Enviado":"⚡ Gerar atribuições automáticas"}
+            </button>
             <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...hBtn,background:"#16a34a",fontWeight:700}}>📥 Importar Excel</button>
             <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
           </div>
         </div>
 
         <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 60px"}}>
+          {geradoMsg&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#166534",fontWeight:500}}>{geradoMsg}</div>}
 
           {/* ── PASSO 1: FUNÇÕES ── */}
           <div style={{...card,marginBottom:24,border:"2px solid #dbeafe"}}>
