@@ -2446,7 +2446,7 @@ export default function App(){
                 if(!window.confirm(`Enviar convites para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`))return;
                 setNotifSending(true);setNotifMsg("");
                 try{
-                  const res=await fetch("/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"convite",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
+                  const res=await fetch("https://avalie360.conectandogente.com/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"convite",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
                   const data=await res.json();
                   if(!res.ok)throw new Error(data.error||"Erro ao enviar");
                   setNotifMsg(`✅ ${data.enviados} email(s) enviado(s)!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);}
@@ -2463,7 +2463,7 @@ export default function App(){
                 if(!window.confirm(`Enviar lembretes para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`))return;
                 setNotifSending(true);setNotifMsg("");
                 try{
-                  const res=await fetch("/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"lembrete",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
+                  const res=await fetch("https://avalie360.conectandogente.com/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"lembrete",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
                   const data=await res.json();
                   if(!res.ok)throw new Error(data.error||"Erro ao enviar");
                   setNotifMsg(`✅ ${data.enviados} email(s) enviado(s)!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);}
