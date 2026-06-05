@@ -1408,6 +1408,7 @@ export default function App(){
   const [upgradeCupomMsg,setUpgradeCupomMsg]=useState(null);
   const [upgradeCupomAplicado,setUpgradeCupomAplicado]=useState(null);
   const [showUpgradeCupom,setShowUpgradeCupom]=useState(false);
+  const [linkCopiado,setLinkCopiado]=useState(false);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
@@ -2126,21 +2127,22 @@ export default function App(){
         </div>
       </div>
       <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 48px",width:"100%"}}>
-        {/* Links colapsável */}
-        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div><h3 style={{color:"#1e3a8a",fontSize:15,margin:0,fontWeight:700}}>🔗 Links de acesso</h3><p style={{fontSize:11,color:"#94a3b8",marginTop:3}}>Compartilhe com os avaliadores</p></div>
-            <button onClick={()=>setShowLinks(p=>!p)} style={{padding:"7px 16px",borderRadius:R.sm,border:"1.5px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>{showLinks?"▲ Ocultar":"▼ Mostrar"}</button>
-          </div>
-          {showLinks&&(<>
-            <div style={{marginTop:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"7px 12px",borderRadius:R.sm,border:"1.5px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select>
-              <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:R.sm,border:`1.5px solid ${pc}`,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Personalizar</button>
+        {/* Link de acesso — único e útil */}
+        {(()=>{
+          const loginUrl=`${org.baseUrl||"https://avalie360.vercel.app"}/${org.slug||""}/login`;
+          return(
+            <div style={{background:"#eff6ff",borderRadius:R.xl,padding:"16px 20px",border:"1px solid #bfdbfe",marginBottom:20,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:2}}>🔗 Link de acesso para colaboradores</div>
+                <div style={{fontSize:12,color:"#2563eb",fontFamily:"monospace",wordBreak:"break-all"}}>{loginUrl}</div>
+              </div>
+              <button onClick={()=>{navigator.clipboard.writeText(loginUrl);setLinkCopiado(true);setTimeout(()=>setLinkCopiado(false),2000);}}
+                style={{padding:"8px 18px",borderRadius:R.md,border:"none",background:linkCopiado?"#059669":"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0,transition:"background 0.2s"}}>
+                {linkCopiado?"✅ Copiado!":"📋 Copiar link"}
+              </button>
             </div>
-            {!org.baseUrl&&<div style={{background:"#fefce8",borderRadius:R.sm,padding:"10px 14px",border:"1px solid #fde68a",margin:"12px 0",fontSize:12,color:"#92400e",display:"flex",alignItems:"center",gap:8}}>⚠️ Configure a <strong>URL do app</strong> nas configurações para gerar links corretos.<button onClick={()=>setScreen("settings")} style={{marginLeft:"auto",padding:"4px 10px",borderRadius:6,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>Configurar</button></div>}
-            {links.map(l=><LinkCard key={l.id} label={`${l.icon} ${l.title}`} link={l.link} color={pc}/>)}
-          </>)}
-        </div>
+          );
+        })()}
         {/* Filtros */}
         <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
@@ -2179,8 +2181,33 @@ export default function App(){
         </div>
         {/* Resultados */}
         {dashTab==="resultados"&&(dData.length===0?(
-          <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe o link de acesso para coletar respostas.</p></div>
         ):(<>
+          {/* Progresso de respostas */}
+          {(()=>{
+            const total=atribuicoes.length;
+            const concluidas=atribuicoes.filter(a=>a.concluida).length;
+            const pendentes=total-concluidas;
+            const pct=total>0?Math.round((concluidas/total)*100):0;
+            if(total===0) return null;
+            return(
+              <div style={{background:"#fff",borderRadius:R.xl,padding:"16px 20px",boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"#1e3a8a"}}>📋 Progresso do ciclo {dci}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:pct===100?"#059669":"#2563eb"}}>{pct}% concluído</span>
+                </div>
+                <div style={{background:"#e2e8f0",borderRadius:99,height:10,marginBottom:12}}>
+                  <div style={{width:`${pct}%`,height:10,borderRadius:99,background:pct===100?"#059669":`linear-gradient(90deg,${pc},#10b981)`,transition:"width 0.6s"}}/>
+                </div>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:"#059669",fontWeight:600}}>✅ {concluidas} concluída{concluidas!==1?"s":""}</span>
+                  <span style={{fontSize:12,color:"#d97706",fontWeight:600}}>⏳ {pendentes} pendente{pendentes!==1?"s":""}</span>
+                  <span style={{fontSize:12,color:"#64748b"}}>📋 {total} total</span>
+                  {pendentes>0&&<button onClick={()=>{setDashTab("status");loadStatusData();}} style={{marginLeft:"auto",fontSize:11,color:pc,background:"none",border:"none",cursor:"pointer",fontWeight:700,padding:0}}>Ver quem está pendente →</button>}
+                </div>
+              </div>
+            );
+          })()}
           {/* CARD 1 — Saúde do time: heatmap por dimensão */}
           {(()=>{
             const bNormais=bStats.filter(b=>!b.isRisk&&b.media>0);
