@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 
 const SUPER_ADMIN_PASSWORD = "W@Huimai2";
 const STORAGE_ORGS = "cg360_orgs";
@@ -577,10 +577,6 @@ async function loadOrgs() {
   } catch(e) { console.error("loadOrgs:", e); return {}; }
 }
 
-async function saveOrgs(orgs) {
-  // no-op: individual ops use upsertOrg/deleteOrgFromDB
-}
-
 async function upsertOrg(org) {
   try {
     await sbFetch("organizations", {
@@ -830,7 +826,7 @@ async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, 
     }
 
     // Liderança — avalia funções que esta função lidera (avalia[])
-    const lidForm = forms.find(f => f.id === "lideranca");
+    const lidForm = forms.find(f => f.id === "lideranca" || f.id === "lideranca_direta");
     if (lidForm && funcaoU.avalia && funcaoU.avalia.length > 0) {
       const liderados = usuarios.filter(p => funcaoU.avalia.includes(p.funcao_id));
       for (const liderado of liderados) {
@@ -842,7 +838,7 @@ async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, 
             usuario_id: u.id,
             avaliado_id: avaliado.id,
             avaliado_nome: avaliado.nome,
-            form_id: "lideranca",
+            form_id: lidForm.id,
             ciclo,
             concluida: false,
           });
@@ -1314,7 +1310,7 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
     <div style={{background:"#f8faff",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #dbeafe"}}>
       <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Avaliações de {usuario.nome}</p>
       {forms.map(f=>{
-        const needsAvaliado = ["liderados","lideranca_direta","pares","pastoral"].includes(f.id);
+        const needsAvaliado = ["liderados","lideranca_direta","lideranca","pares","pastoral"].includes(f.id);
         if(needsAvaliado && avaliados.length>0){
           return(
             <div key={f.id} style={{marginBottom:12}}>
@@ -1376,15 +1372,19 @@ function KpiCard({icon,val,label,color}){
 // PDF Print function
 function printIndividualPDF({org,avaliado,ciclo,formTitle,bStats,mgeral,abList,respsCount}){
   function sc(s){return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";}
-  const bars=bStats.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/5":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
+  const bstatsNormais=bStats.filter(b=>!b.isRisk);
+  const bstatsRisco=bStats.filter(b=>b.isRisk);
+  const bars=bstatsNormais.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/5":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
+  const riscoCards=bstatsRisco.length>0?`<div style="margin-top:24px;margin-bottom:16px"><p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Sinais preventivos</p>${bstatsRisco.map(b=>{const semAlerta=b.media<=1.5||b.media===0;return`<div style="margin-bottom:8px;padding:10px 14px;border-radius:10px;background:${semAlerta?"#f0fdf4":"#fffbeb"};border:1px solid ${semAlerta?"#86efac":"#fde68a"}"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${semAlerta?"#059669":"#d97706"}">${semAlerta?"✅ Nenhum sinal de alerta":"⚠️ Atenção"}</span></div></div>`;}).join("")}</div>`:"";
   const comments=abList.length>0?`<p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin:28px 0 12px">Reflexões abertas (${abList.length})</p>${abList.map(t=>`<div style="background:#f8faff;border-left:3px solid #3b82f6;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#334155;line-height:1.7;border-radius:0 8px 8px 0">"${t}"</div>`).join("")}`:"";
   const logoHtml=org.logoUrl?`<img src="${org.logoUrl}" style="height:44px;object-fit:contain"/>`:`<div style="width:44px;height:44px;border-radius:10px;background:#1e3a8a;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${(org.name||"?").slice(0,2).toUpperCase()}</div>`;
   const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${avaliado}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;color:#1e293b;padding:40px;max-width:800px;margin:0 auto}.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;border-bottom:3px solid #1e3a8a;margin-bottom:28px}.badge{background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 28px}.kpi{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px;text-align:center}.kpi-val{font-size:22px;font-weight:800;color:#1e3a8a}.kpi-lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}.footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0}.lgpd{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:11px;color:#15803d;margin-top:32px}@media print{body{padding:20px}}</style></head><body>
   <div class="hdr"><div>${logoHtml}<div style="margin-top:10px"><strong style="font-size:15px;color:#1e3a8a">${org.name||""}</strong><div style="font-size:11px;color:#64748b;margin-top:2px">Avaliação 360°</div></div></div><div style="text-align:right"><span class="badge">LGPD conforme</span><div style="font-size:11px;color:#94a3b8;margin-top:8px">Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></div></div>
   <h1 style="font-size:22px;font-weight:800;color:#1e3a8a;margin-bottom:4px">${avaliado}</h1>
-  <div style="font-size:13px;color:#64748b">${formTitle} · ${ciclo}</div>
-  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/5</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bStats.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
-  <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px">Pontuação por dimensão</p>${bars}${comments}
+  <div style="font-size:13px;color:#64748b;margin-bottom:4px">${formTitle} · ${ciclo}</div>
+  <div style="font-size:12px;color:#94a3b8;margin-bottom:16px">${respsCount} pessoa${respsCount!==1?"s":""} responderam sobre ${avaliado}</div>
+  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/5</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bstatsNormais.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
+  <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px">Pontuação por dimensão</p>${bars}${riscoCards}${comments}
   <div class="lgpd">🔒 Este relatório não contém dados pessoais identificáveis. Respostas exibidas de forma agregada conforme a LGPD (Lei nº 13.709/2018).</div>
   <div class="footer">Powered by Conectando Gente — Avaliação 360°</div>
   </body></html>`;
@@ -1413,7 +1413,7 @@ export default function App(){
   const [dfi,setDfi]=useState(0);const [dci,setDci]=useState(CICLOS[0]);const [repCopied,setRepCopied]=useState(false);
   const [showLinks,setShowLinks]=useState(false);
   const [efi,setEfi]=useState(0);const [ebi,setEbi]=useState(0);
-  const [nOrg,setNOrg]=useState({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});const [nOrgE,setNOrgE]=useState("");
+  const [nOrg,setNOrg]=useState({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:"",orgType:"religiosa"});const [nOrgE,setNOrgE]=useState("");
   const [editingOrg,setEditingOrg]=useState(null); // org being edited in super admin
   const [cfg,setCfg]=useState(null);
   const [showAdminPass,setShowAdminPass]=useState(false);
@@ -1432,7 +1432,6 @@ export default function App(){
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
   const [urlAvaliadoId,setUrlAvaliadoId]=useState(null); // avaliado id from URL
   const [avaliados,setAvaliados]=useState([]); // list of avaliados for current org
-  const [showAvaliados,setShowAvaliados]=useState(false); // show avaliados management
   const [newAvaliado,setNewAvaliado]=useState({nome:"",funcao:""});
   // Login por pessoa
   const [usuarioLogado,setUsuarioLogado]=useState(null);
@@ -1450,8 +1449,6 @@ export default function App(){
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
   const [scaleModel,setScaleModel]=useState("frequencia");
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
-  const [importTab,setImportTab]=useState(null);
-  const [importResult,setImportResult]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
   const [progressSaving,setProgressSaving]=useState(false);
   // Dashboard tabs & novas features
@@ -1470,6 +1467,12 @@ export default function App(){
   const [novaSenha,setNovaSenha]=useState("");
   const [confirmaSenha,setConfirmaSenha]=useState("");
   const [trocaSenhaMsg,setTrocaSenhaMsg]=useState("");
+  // Onboarding
+  const [showOnboarding,setShowOnboarding]=useState(false);
+  const [onboardingStep,setOnboardingStep]=useState(0);
+  // Notificações
+  const [notifTab,setNotifTab]=useState("convite");
+  const [notifMsg,setNotifMsg]=useState("");
   useEffect(()=>{
     async function init(){
       const ao=await loadOrgs();setOrgs(ao);
@@ -1586,6 +1589,27 @@ export default function App(){
   const mgeral=bStats.length?(bStats.filter(b=>!b.isRisk).reduce((a,b)=>a+b.media,0)/Math.max(1,bStats.filter(b=>!b.isRisk).length)).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
   const dist=[1,2,3,4,5].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,12),count:c};});
+  // Dados para gráfico Radar
+  const radarData=bStats.filter(b=>!b.isRisk).map(b=>({subject:b.name,fullName:b.fullName,value:b.media,fullMark:5}));
+  // Comparativo Autoavaliação vs Outros (só quando avaliado selecionado)
+  const autoVsOutrosData=dAvaliado&&dForm?(()=>{
+    const autoResps=resps.filter(r=>r.ciclo===dci&&r.formId==="autoavaliacao"&&r.avaliadoId===dAvaliado);
+    const outrosResps=dData.filter(r=>r.formId!=="autoavaliacao");
+    if(autoResps.length===0&&outrosResps.length===0) return null;
+    // Usar os blocos do formulário atual para cruzar com auto
+    const formsAll=forms;
+    const autoForm=formsAll.find(f=>f.id==="autoavaliacao");
+    if(!autoForm) return null;
+    return autoForm.blocos.filter(b=>!b.id?.startsWith("riscos_")&&b.scaleType!=="yesno").map(b=>{
+      const autoSc=autoResps.map(r=>bAvg(b,r.answers)).filter(v=>v>0);
+      const autoMedia=autoSc.length?parseFloat((autoSc.reduce((a,x)=>a+x,0)/autoSc.length).toFixed(2)):0;
+      // Tentar achar o bloco correspondente no formulário atual (por id ou título similar)
+      const blocoAtual=dForm.blocos.find(x=>x.id===b.id||x.title===b.title);
+      const outrosSc=blocoAtual?outrosResps.map(r=>bAvg(blocoAtual,r.answers)).filter(v=>v>0):[];
+      const outrosMedia=outrosSc.length?parseFloat((outrosSc.reduce((a,x)=>a+x,0)/outrosSc.length).toFixed(2)):0;
+      return{name:b.title.slice(0,14),fullName:b.title,auto:autoMedia,outros:outrosMedia};
+    }).filter(d=>d.auto>0||d.outros>0);
+  })():null;
   // Comparativo entre ciclos
   const COMP_COLORS=["#2563eb","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4"];
   const ciclosComDados=dForm&&dAvaliado?CICLOS.filter(c=>resps.some(r=>r.ciclo===c&&r.formId===dForm.id&&r.avaliadoId===dAvaliado)):[];
@@ -1617,7 +1641,7 @@ export default function App(){
       const linkLabels = custom.length>0 ? custom : [{id:null, label:f.title}];
       linkLabels.forEach(l=>{
         // If avaliados exist for this form type, generate one link per avaliado
-        const needsAvaliado = ["liderados","lideranca_direta","pares","pastoral"].includes(f.id);
+        const needsAvaliado = ["liderados","lideranca_direta","lideranca","pares","pastoral"].includes(f.id);
         if(needsAvaliado && avaliados.length>0){
           avaliados.forEach(av=>{
             const linkId = l.id ? `/${l.id}` : "";
@@ -1654,11 +1678,56 @@ export default function App(){
     a.download=`avaliacao-${org?.name||"org"}-${dci.replace(/ /g,"-")}.csv`;a.click();
   }
 
+  function exportXLSX(){
+    if(!dData.length)return;
+    // Gera XLSX sem biblioteca externa — formato XML SpreadsheetML (suportado pelo Excel)
+    const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const cell=(v,t="String")=>`<Cell><Data ss:Type="${t}">${esc(v)}</Data></Cell>`;
+    const row=cells=>`<Row>${cells.join("")}</Row>`;
+    // Aba 1: Médias por área
+    const rows1=[
+      row([cell("Dimensão"),cell("Média"),cell("Respostas")]),
+      ...bStats.map(b=>row([cell(b.fullName),cell(b.media>0?b.media.toFixed(2):"—"),cell(dData.length,"Number")])),
+      row([cell("MÉDIA GERAL"),cell(mgeral)]),
+    ];
+    // Aba 2: Dados brutos
+    const rows2=[
+      row([cell("Ciclo"),cell("Formulário"),cell("Avaliado"),cell("Data"),cell("Área"),cell("Média")]),
+      ...dData.flatMap(r=>
+        (r.scores||[]).map(s=>row([
+          cell(r.ciclo),cell(r.formTitle),cell(r.avaliadoNome||"—"),
+          cell(new Date(r.ts).toLocaleDateString("pt-BR")),
+          cell(s.label),cell(s.score>0?s.score.toFixed(2):"—"),
+        ]))
+      ),
+    ];
+    // Aba 3: Reflexões abertas
+    const rows3=[
+      row([cell("Reflexão")]),
+      ...abList.map(t=>row([cell(t)])),
+    ];
+    const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Médias por área"><Table>${rows1.join("")}</Table></Worksheet>
+ <Worksheet ss:Name="Dados brutos"><Table>${rows2.join("")}</Table></Worksheet>
+ <Worksheet ss:Name="Reflexões abertas"><Table>${rows3.join("")}</Table></Worksheet>
+</Workbook>`;
+    const blob=new Blob([xml],{type:"application/vnd.ms-excel;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`avaliacao-${(org?.name||"org").replace(/\s/g,"-")}-${dci.replace(/ /g,"-")}.xls`;
+    a.click();
+  }
   function exportHTML(){
     if(!dData.length)return;
-    const rowsH=bStats.map(b=>`<tr><td style="padding:10px;border-bottom:1px solid #e2e8f0">${b.fullName}</td><td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:${sColor(b.media)}">${b.media.toFixed(1)}/5</td><td style="padding:10px;border-bottom:1px solid #e2e8f0"><div style="background:#e2e8f0;border-radius:4px;height:10px;width:180px"><div style="width:${(b.media/5)*100}%;background:${sColor(b.media)};height:10px;border-radius:4px"></div></div></td></tr>`).join("");
+    const bNormais=bStats.filter(b=>!b.isRisk);
+    const bRisco=bStats.filter(b=>b.isRisk);
+    const rowsH=bNormais.map(b=>`<tr><td style="padding:10px;border-bottom:1px solid #e2e8f0">${b.fullName}</td><td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:${sColor(b.media)}">${b.media.toFixed(1)}/5</td><td style="padding:10px;border-bottom:1px solid #e2e8f0"><div style="background:#e2e8f0;border-radius:4px;height:10px;width:180px"><div style="width:${(b.media/5)*100}%;background:${sColor(b.media)};height:10px;border-radius:4px"></div></div></td></tr>`).join("");
+    const riscoH=bRisco.length>0?`<h2 style="margin-top:32px;color:#1e3a8a">Sinais preventivos</h2>${bRisco.map(b=>{const ok=b.media<=1.5||b.media===0;return`<div style="margin-bottom:8px;padding:10px 14px;border-radius:8px;background:${ok?"#f0fdf4":"#fffbeb"};border:1px solid ${ok?"#86efac":"#fde68a"};display:flex;justify-content:space-between"><span>${b.fullName}</span><span style="font-weight:700;color:${ok?"#059669":"#d97706"}">${ok?"✅ Nenhum sinal de alerta":"⚠️ Atenção"}</span></div>`;}).join("")}`:"";
     const absH=abList.map(t=>`<li style="margin-bottom:8px;color:#334155;line-height:1.6">${t}</li>`).join("");
-    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
+    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${riscoH}${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8;"}));
     a.download=`relatorio-${org?.name||"org"}-${dci.replace(/ /g,"-")}.html`;a.click();
   }
@@ -1695,9 +1764,14 @@ export default function App(){
       const yl=o.yesnoLabels||DEFAULT_YESNO_LABELS;
       setYesnoLabels(yl);
       const av=await loadAvaliados(o.id);
+      const us=await loadUsuarios(o.id);
       setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);
       setScaleModel(sm);setScaleLabels(getScaleLabels(sm));
-      setAvaliados(av);setDci(o.activeCiclo||CICLOS[0]);setScreen("dash");
+      setAvaliados(av);setUsuarios(us);setDci(o.activeCiclo||CICLOS[0]);
+      // Detectar primeiro acesso: sem avaliados e sem usuários
+      const isPrimeiroAcesso = av.length===0 && us.length===0 && r.length===0;
+      if(isPrimeiroAcesso){ setOnboardingStep(0); setShowOnboarding(true); }
+      setScreen("dash");
     }else setOrgE(true);
   }
   async function createOrg(){
@@ -1706,11 +1780,11 @@ export default function App(){
     // Use custom slug if provided, else derive from name (max 12 chars)
     const baseSlug = nOrg.slug ? slugify(nOrg.slug) : slugify(nOrg.name).slice(0,12);
     const id=baseSlug+"-"+genId(4);
-    const o={id,name:san(nOrg.name),adminPassword:nOrg.adminPassword,primaryColor:nOrg.primaryColor,logoUrl:nOrg.logoUrl,createdAt:new Date().toISOString(),activeCiclo:CICLOS[0]};
+    const o={id,name:san(nOrg.name),adminPassword:nOrg.adminPassword,primaryColor:nOrg.primaryColor,logoUrl:nOrg.logoUrl,createdAt:new Date().toISOString(),activeCiclo:CICLOS[0],orgType:nOrg.orgType||"religiosa"};
     const ok = await upsertOrg(o);
     if(!ok){setNOrgE("Erro ao salvar. Verifique a conexão.");return;}
     const u={...orgs,[id]:o};setOrgs(u);
-    setNOrg({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:"",slug:""});setNOrgE("");
+    setNOrg({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:"",orgType:"religiosa"});setNOrgE("");
   }
   async function delOrg(id){
     if(!confirm("Remover esta organização? Todos os dados serão perdidos."))return;
@@ -1809,7 +1883,7 @@ export default function App(){
           <div style={{...card,marginBottom:16}}><p style={{fontSize:13,color:"#64748b",marginBottom:8}}><strong>{d.orgName}</strong> · {d.ciclo} · {d.formTitle}</p><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#166534"}}>🔒 Este relatório não contém dados pessoais identificáveis · LGPD conforme</div></div>
           <div style={{...card,marginBottom:16}}>
             <h3 style={{color:"#1e3a8a",marginBottom:16,fontSize:15}}>Pontuação por área</h3>
-            {(d.bStats||[]).map((b,i)=><ScBar key={i} label={b.fullName||b.name} score={b.media}/>)}
+            {(d.bStats||[]).map((b,i)=><ScBar key={i} label={b.fullName||b.name} score={b.media} isRisk={b.isRisk}/>)}
             <p style={{fontSize:14,color:"#64748b",marginTop:16}}>Média geral: <strong style={{fontSize:22,color:"#1e3a8a"}}>{d.mgeral}/5</strong></p>
           </div>
           {d.abList?.length>0&&<div style={{...card}}><h3 style={{color:"#1e3a8a",marginBottom:12,fontSize:15}}>💬 Reflexões ({d.abList.length})</h3>{d.abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",borderLeft:"3px solid #3b82f6",fontSize:13,color:"#334155",marginBottom:8,lineHeight:1.6}}>"{t}"</div>)}</div>}
@@ -1865,6 +1939,7 @@ export default function App(){
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA DO ADMIN *</label><input type="password" value={nOrg.adminPassword} onChange={e=>setNOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Senha"/></div>
             <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Identificador da URL <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(ex: "sepal" → avalie360.vercel.app/sepal/login)</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{width:44,height:38,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/><input value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/></div></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>TIPO DE ORGANIZAÇÃO</label><select value={nOrg.orgType||"religiosa"} onChange={e=>setNOrg(p=>({...p,orgType:e.target.value}))} style={inp}><option value="religiosa">⛪ Religiosa (Igreja, agência missionária, ministério)</option><option value="nao_religiosa">🏢 Não-religiosa (Empresa, ONG, escola)</option></select></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label><LogoUploader value={nOrg.logoUrl} onChange={url=>setNOrg(p=>({...p,logoUrl:url}))} color={nOrg.primaryColor}/></div>
           </div>
           {nOrgE&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>⚠️ {nOrgE}</p>}
@@ -2059,8 +2134,7 @@ export default function App(){
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
           <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
-          <button onClick={async()=>{const fns=await loadFuncoes(org.id);setFuncoes(fns);setScreen("funcoes");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🏷️ Funções</button>
-          <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🔑 Usuários</button>
+          <button onClick={async()=>{const fns=await loadFuncoes(org.id);setFuncoes(fns);const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("equipe");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Equipe</button>
           <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
           <button onClick={()=>{setScreen("home");setOrg(null);}} style={{border:"1.5px solid rgba(255,255,255,0.18)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(0,0,0,0.18)"}}>Sair</button>
         </div>
@@ -2089,6 +2163,7 @@ export default function App(){
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
+              <button onClick={exportXLSX} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>📊 Excel</button>
               <button onClick={exportHTML} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:"#7c3aed",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>📄 HTML</button>
               <button onClick={shareReport} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:repCopied?"#16a34a":"#0891b2",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,transition:"background 0.2s"}}>{repCopied==="saving"?"⏳":repCopied?"✓ Link!":"🔗 Compartilhar"}</button>
               {dAvaliado&&dData.length>0&&(
@@ -2099,17 +2174,18 @@ export default function App(){
           </div>
         </div>
         {/* KPIs */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
           <KpiCard icon="📋" val={dData.length} label="Respostas" color={pc}/>
           <KpiCard icon="⭐" val={mgeral} label="Média Geral" color={mgeral==="—"?"#94a3b8":sColor(Number(mgeral))}/>
           <KpiCard icon="💬" val={abList.length} label="Reflexões" color="#8b5cf6"/>
+          <KpiCard icon="👥" val={`${usuarios.length}${org.numColabs?"/"+org.numColabs:""}`} label="Colaboradores" color={org.numColabs&&usuarios.length>org.numColabs?"#dc2626":"#059669"}/>
         </div>
         {/* Abas */}
         <div style={{background:"#fff",borderRadius:R.xl,padding:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
-          <div style={{display:"flex",gap:4}}>
-            {[{id:"resultados",label:"📊 Resultados"},{id:"status",label:"👁 Status"},{id:"comparativo",label:"📈 Evolução"}].map(t=>(
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {[{id:"resultados",label:"📊 Resultados"},{id:"radar",label:"🕸️ Radar"},{id:"autovsoutros",label:"🔄 Auto vs Outros"},{id:"status",label:"👁 Status"},{id:"comparativo",label:"📈 Evolução"}].map(t=>(
               <button key={t.id} onClick={()=>{setDashTab(t.id);if(t.id==="status")loadStatusData();}}
-                style={{padding:"8px 18px",borderRadius:R.sm,border:"none",background:dashTab===t.id?pc:"transparent",color:dashTab===t.id?"#fff":"#64748b",cursor:"pointer",fontWeight:dashTab===t.id?700:500,fontSize:13,transition:"all 0.15s"}}>
+                style={{padding:"8px 14px",borderRadius:R.sm,border:"none",background:dashTab===t.id?pc:"transparent",color:dashTab===t.id?"#fff":"#64748b",cursor:"pointer",fontWeight:dashTab===t.id?700:500,fontSize:12,transition:"all 0.15s"}}>
                 {t.label}
               </button>
             ))}
@@ -2124,6 +2200,71 @@ export default function App(){
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
+        {/* Radar */}
+        {dashTab==="radar"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
+          <h3 style={{color:"#1e3a8a",fontSize:15,margin:"0 0 6px",fontWeight:700}}>🕸️ Radar por Dimensões</h3>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>{dForm?.title||"Formulário"} · {dAvaliado?avaliados.find(a=>a.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p>
+          {radarData.length<3?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>🕸️</div><p style={{fontSize:13}}>São necessárias pelo menos 3 dimensões para exibir o radar.</p></div>):(
+            <ResponsiveContainer width="100%" height={360}>
+              <RadarChart data={radarData} margin={{top:20,right:30,bottom:20,left:30}}>
+                <PolarGrid stroke="#e2e8f0"/>
+                <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:"#64748b"}}/>
+                <PolarRadiusAxis angle={90} domain={[0,5]} tick={{fontSize:10,fill:"#94a3b8"}} tickCount={6}/>
+                <Radar name="Média" dataKey="value" stroke={pc} fill={pc} fillOpacity={0.18} strokeWidth={2}/>
+                <Tooltip formatter={(v,n,p)=>[`${v}/5`,p.payload.fullName]}/>
+              </RadarChart>
+            </ResponsiveContainer>
+          )}
+          {radarData.length>=3&&<p style={{fontSize:11,color:"#94a3b8",textAlign:"center",marginTop:8}}>Passe o mouse sobre os pontos para ver os valores exatos</p>}
+        </div>)}
+
+        {/* Auto vs Outros */}
+        {dashTab==="autovsoutros"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
+          <h3 style={{color:"#1e3a8a",fontSize:15,margin:"0 0 6px",fontWeight:700}}>🔄 Autoavaliação vs. Visão dos Outros</h3>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>O dado mais revelador do 360°: como a pessoa se vê vs. como os outros a veem. Selecione um avaliado acima.</p>
+          {!dAvaliado?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>👤</div><p style={{fontSize:13}}>Selecione um avaliado no filtro acima.</p></div>):
+          !autoVsOutrosData||autoVsOutrosData.length===0?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>📊</div><p style={{fontSize:13}}>Sem dados suficientes. É necessário ter autoavaliação e pelo menos outra avaliação para este avaliado.</p></div>):(
+            <>
+              <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
+                <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:13,color:"#2563eb",fontWeight:600}}><span style={{width:12,height:12,borderRadius:2,background:"#2563eb",display:"inline-block"}}/> Autoavaliação</span>
+                <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:13,color:"#10b981",fontWeight:600}}><span style={{width:12,height:12,borderRadius:2,background:"#10b981",display:"inline-block"}}/> Visão dos outros</span>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={autoVsOutrosData} margin={{top:5,right:10,left:-20,bottom:60}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                  <XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/>
+                  <YAxis domain={[0,5]} tick={{fontSize:11}}/>
+                  <Tooltip formatter={(v,n)=>[`${v}/5`,n==="auto"?"Autoavaliação":"Visão dos outros"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/>
+                  <Bar dataKey="auto" name="auto" fill="#2563eb" radius={[6,6,0,0]} opacity={0.85}/>
+                  <Bar dataKey="outros" name="outros" fill="#10b981" radius={[6,6,0,0]} opacity={0.85}/>
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{marginTop:20,overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#f8faff"}}>
+                    <th style={{padding:"8px 12px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Dimensão</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",color:"#2563eb",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Autoavaliação</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",color:"#10b981",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Visão dos outros</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",color:"#64748b",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Diferença</th>
+                  </tr></thead>
+                  <tbody>{autoVsOutrosData.map((row,i)=>{
+                    const diff=row.auto>0&&row.outros>0?parseFloat((row.auto-row.outros).toFixed(2)):null;
+                    return(<tr key={i} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8faff"}}>
+                      <td style={{padding:"8px 12px",color:"#334155",fontWeight:500}}>{row.fullName}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:row.auto>0?sColor(row.auto):"#94a3b8"}}>{row.auto>0?row.auto.toFixed(1):"—"}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:row.outros>0?sColor(row.outros):"#94a3b8"}}>{row.outros>0?row.outros.toFixed(1):"—"}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:diff===null?"#94a3b8":diff>0.5?"#f59e0b":diff<-0.5?"#3b82f6":"#64748b"}}>
+                        {diff===null?"—":diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}
+                      </td>
+                    </tr>);
+                  })}</tbody>
+                </table>
+              </div>
+              <p style={{fontSize:11,color:"#94a3b8",marginTop:12}}>💡 Diferença positiva = pessoa se avalia mais alto que os outros a avaliam. Negativa = pessoa se avalia abaixo do que os outros percebem.</p>
+            </>
+          )}
+        </div>)}
+
         {/* Status */}
         {dashTab==="status"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
@@ -2166,6 +2307,40 @@ export default function App(){
         </div>)}
       </div>
       <PoweredBy/>
+
+      {/* ── ONBOARDING MODAL ── */}
+      {showOnboarding&&(()=>{
+        const steps=[
+          {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação.",btn:"Começar →"},
+          {icon:"👥",title:"Passo 1 — Crie as funções",desc:"Acesse \"👥 Equipe\" e crie as funções da organização (ex: Pastor, Coordenador). Defina quem avalia quem. Isso permite gerar as atribuições automaticamente.",btn:"Entendido →",action:()=>{setShowOnboarding(false);loadFuncoes(org.id).then(fns=>{setFuncoes(fns);loadUsuarios(org.id).then(us=>{setUsuarios(us);setScreen("equipe");});})}},
+          {icon:"👤",title:"Passo 2 — Cadastre os avaliados",desc:"Acesse \"👥 Avaliados\" e cadastre quem será avaliado. Você pode importar via CSV também. Cada avaliado receberá um relatório individual.",btn:"Entendido →",action:()=>{setShowOnboarding(false);setScreen("avaliados");}},
+          {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links de avaliação corretos.",btn:"Entendido →",action:()=>{setShowOnboarding(false);setScreen("settings");}},
+          {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto!",btn:"Fechar e começar! 🚀"},
+        ];
+        const s=steps[onboardingStep];
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+            <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:460,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
+              <button onClick={()=>setShowOnboarding(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#94a3b8"}}>✕</button>
+              <div style={{fontSize:52,marginBottom:16}}>{s.icon}</div>
+              <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:10}}>{s.title}</h2>
+              <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24}}>{s.desc}</p>
+              {/* Progress dots */}
+              <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
+                {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===onboardingStep?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+                {onboardingStep>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
+                <button onClick={()=>{
+                  if(s.action){s.action();return;}
+                  if(onboardingStep<steps.length-1){setOnboardingStep(p=>p+1);}
+                  else{setShowOnboarding(false);}
+                }} style={{padding:"12px 28px",borderRadius:10,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:15}}>{s.btn}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>);
   }
 
@@ -2272,7 +2447,44 @@ export default function App(){
           </button>
         </div>
         <div style={{...card,background:"#f0fdf4",border:"1px solid #bbf7d0"}}><h3 style={{color:"#166534",marginBottom:10,fontSize:14}}>🔒 LGPD — Conformidade</h3><p style={{fontSize:12,color:"#166534",lineHeight:1.7,margin:0}}>{LGPD}</p></div>
-        <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"14px 20px",fontSize:15,marginTop:8}}>💾 Salvar configurações</button>
+
+        {/* Notificações */}
+        <div style={{...card,marginTop:16}}>
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🔔 Notificações</h3>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Envie convites ou lembretes por email para os colaboradores do ciclo ativo.</p>
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {["convite","lembrete"].map(t=>(
+              <button key={t} onClick={()=>setNotifTab(t)}
+                style={{padding:"7px 16px",borderRadius:R.sm,border:"none",background:notifTab===t?pc:"#f1f5f9",color:notifTab===t?"#fff":"#64748b",cursor:"pointer",fontWeight:notifTab===t?700:500,fontSize:13}}>
+                {t==="convite"?"📨 Convite":"⏰ Lembrete"}
+              </button>
+            ))}
+          </div>
+          <div style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",border:"1px solid #dbeafe",marginBottom:14,fontSize:13,color:"#1e40af",lineHeight:1.6}}>
+            {notifTab==="convite"
+              ?"Envia um email de convite para todos os usuários que ainda não iniciaram suas avaliações no ciclo ativo, com o link de acesso e instruções."
+              :"Envia um lembrete por email para todos os usuários com avaliações pendentes no ciclo ativo, incentivando a conclusão."}
+          </div>
+          {notifMsg&&<div style={{background:notifMsg.startsWith("✅")?"#f0fdf4":"#fef2f2",borderRadius:R.md,padding:"10px 14px",border:`1px solid ${notifMsg.startsWith("✅")?"#86efac":"#fecaca"}`,fontSize:13,color:notifMsg.startsWith("✅")?"#166534":"#dc2626",marginBottom:12}}>{notifMsg}</div>}
+          <button onClick={async()=>{
+            if(!window.confirm(`Enviar ${notifTab==="convite"?"convites":"lembretes"} por email para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`)) return;
+            setNotifSending(true);setNotifMsg("");
+            try{
+              const res=await fetch("/api/send-notifications",{
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:notifTab,baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})
+              });
+              const data=await res.json();
+              if(!res.ok) throw new Error(data.error||"Erro ao enviar");
+              setNotifMsg(`✅ ${data.enviados} email(s) enviado(s) com sucesso!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);
+            }catch(e){setNotifMsg("❌ Erro: "+e.message);}
+            setNotifSending(false);
+          }} disabled={notifSending} style={{...btn(notifTab==="convite"?"#2563eb":"#d97706"),opacity:notifSending?0.6:1}}>
+            {notifSending?"⏳ Enviando…":notifTab==="convite"?"📨 Enviar convites agora":"⏰ Enviar lembretes agora"}
+          </button>
+        </div>
+
+        <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"14px 20px",fontSize:15,marginTop:16}}>💾 Salvar configurações</button>
       </div>
       <PoweredBy/>
     </div>
@@ -2933,147 +3145,130 @@ export default function App(){
 
   // ── USUARIOS MANAGEMENT ──
   // ── TELA DE FUNÇÕES/CARGOS ───────────────────────────────────────
-  if(screen==="funcoes"&&org){
+  if(screen==="equipe"&&org){
+    const pc2=org.primaryColor||"#2563eb";
+    const [showHelpFuncoes,setShowHelpFuncoes]=React.useState(false);
+    const [showHelpUsuarios,setShowHelpUsuarios]=React.useState(false);
+
+    async function gerarAtribuicoes(){
+      const ats2=await loadAtribuicoesOrg(org.id,org.activeCiclo||CICLOS[0]);
+      const cicloAtivo=org.activeCiclo||CICLOS[0];
+      const atsForms=ats2.filter(a=>a.ciclo===cicloAtivo);
+      if(atsForms.length>0&&!window.confirm(`Já existem ${atsForms.length} atribuições para o ciclo ${cicloAtivo}. Deseja gerar novas? As existentes NÃO serão removidas.`)) return;
+      const avs=await loadAvaliados(org.id);
+      const novas=await gerarAtribuicoesAutomaticas(org.id,usuarios,funcoes,avs,cicloAtivo,forms);
+      if(novas.length===0){alert("Nenhuma atribuição gerada. Verifique se os usuários têm funções definidas e se as funções têm relações configuradas.");return;}
+      let salvas=0;
+      for(const at of novas){const ok=await saveAtribuicao(at);if(ok)salvas++;}
+      alert(`✅ ${salvas} atribuições geradas automaticamente para o ciclo ${cicloAtivo}!`);
+    }
+
     return(
       <div style={{...pg,padding:0,background:"#f8f9fa"}}>
-        <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
-          <div><div style={{fontWeight:800,fontSize:15}}>🏷️ Funções — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre as funções e defina quem avalia quem automaticamente</div></div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={async()=>{
-              const us=await loadUsuarios(org.id);setUsuarios(us);
-              const ats2=await loadAtribuicoesOrg(org.id,org.activeCiclo||CICLOS[0]);
-              const cicloAtivo=org.activeCiclo||CICLOS[0];
-              const atsForms=ats2.filter(a=>a.ciclo===cicloAtivo);
-              if(atsForms.length>0&&!window.confirm(`Já existem ${atsForms.length} atribuições para o ciclo ${cicloAtivo}. Deseja gerar novas atribuições automaticamente? As existentes NÃO serão removidas, apenas acrescentadas.`)) return;
-              const avs=await loadAvaliados(org.id);
-              const novas=await gerarAtribuicoesAutomaticas(org.id,us,funcoes,avs,cicloAtivo,forms);
-              if(novas.length===0){alert("Nenhuma atribuição gerada. Verifique se os usuários têm funções definidas e se as funções têm relações configuradas.");return;}
-              let salvas=0;
-              for(const at of novas){
-                const ok=await saveAtribuicao(at);
-                if(ok) salvas++;
-              }
-              alert(`✅ ${salvas} atribuições geradas automaticamente para o ciclo ${cicloAtivo}!`);
-            }} style={{...hBtn,background:"#059669",fontWeight:700}}>⚡ Gerar atribuições automáticas</button>
-            <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
-          </div>
-        </div>
-        <div style={{maxWidth:900,margin:"0 auto",padding:"20px 16px 60px"}}>
-          {/* Info */}
-          <div style={{...card,marginBottom:20,background:"#eff6ff",border:"1px solid #dbeafe"}}>
-            <p style={{fontSize:13,color:"#1e40af",lineHeight:1.7}}>
-              <strong>Como funciona:</strong> Cadastre as funções da organização (ex: Pastor, Coordenador, Voluntário). 
-              Em seguida, defina para cada função quais outras funções ela <strong>avalia</strong> (liderados dela) e por quais ela <strong>é avaliada</strong> (seus líderes). 
-              Depois, ao cadastrar usuários, selecione a função de cada um. 
-              Por fim, clique em <strong>"Gerar atribuições automáticas"</strong> para criar todas as avaliações de uma vez.
-            </p>
-          </div>
-
-          {/* Cadastrar nova função */}
-          <div style={{...card,marginBottom:20}}>
-            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:14}}>➕ Nova função</h3>
-            <div style={{display:"flex",gap:12}}>
-              <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
-              <button onClick={async()=>{
-                if(!newFuncao.trim()) return;
-                const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};
-                await saveFuncao(f);
-                setFuncoes(p=>[...p,f]);
-                setNewFuncao("");
-              }} style={{...btn(pc),whiteSpace:"nowrap"}}>Adicionar</button>
-            </div>
-          </div>
-
-          {/* Lista de funções com relações */}
-          {funcoes.length===0?(
-            <div style={{...card,textAlign:"center",padding:"40px 0",color:"#94a3b8"}}>
-              <div style={{fontSize:36,marginBottom:12}}>🏷️</div>
-              <p style={{fontSize:14}}>Nenhuma função cadastrada ainda.</p>
-              <p style={{fontSize:12,marginTop:6}}>Adicione as funções da organização acima para começar.</p>
-            </div>
-          ):(
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              {funcoes.map(f=>(
-                <div key={f.id} style={{...card}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                    <div style={{fontWeight:700,fontSize:15,color:"#1e3a8a"}}>{f.nome}</div>
-                    <button onClick={async()=>{
-                      if(!window.confirm(`Remover a função "${f.nome}"? Os usuários com esta função ficarão sem função definida.`)) return;
-                      await deleteFuncao(f.id);
-                      setFuncoes(p=>p.filter(x=>x.id!==f.id));
-                    }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",color:"#dc2626",fontSize:12,fontWeight:600}}>Remover</button>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-                    {/* Avalia */}
-                    <div>
-                      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Esta função avalia (liderados):</p>
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {funcoes.filter(x=>x.id!==f.id).map(x=>{
-                          const checked=(f.avalia||[]).includes(x.id);
-                          return(
-                            <label key={x.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"#334155"}}>
-                              <input type="checkbox" checked={checked} onChange={async()=>{
-                                const novaLista=checked?(f.avalia||[]).filter(id=>id!==x.id):[...(f.avalia||[]),x.id];
-                                await updateFuncaoRelacoes(f.id,novaLista,f.avaliada_por||[]);
-                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avalia:novaLista}:fn));
-                              }} style={{width:14,height:14}}/>
-                              {x.nome}
-                            </label>
-                          );
-                        })}
-                        {funcoes.filter(x=>x.id!==f.id).length===0&&<p style={{fontSize:12,color:"#94a3b8"}}>Cadastre mais funções para definir relações.</p>}
-                      </div>
-                    </div>
-                    {/* Avaliada por */}
-                    <div>
-                      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>É avaliada por (líderes):</p>
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {funcoes.filter(x=>x.id!==f.id).map(x=>{
-                          const checked=(f.avaliada_por||[]).includes(x.id);
-                          return(
-                            <label key={x.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"#334155"}}>
-                              <input type="checkbox" checked={checked} onChange={async()=>{
-                                const novaLista=checked?(f.avaliada_por||[]).filter(id=>id!==x.id):[...(f.avaliada_por||[]),x.id];
-                                await updateFuncaoRelacoes(f.id,f.avalia||[],novaLista);
-                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avaliada_por:novaLista}:fn));
-                              }} style={{width:14,height:14}}/>
-                              {x.nome}
-                            </label>
-                          );
-                        })}
-                        {funcoes.filter(x=>x.id!==f.id).length===0&&<p style={{fontSize:12,color:"#94a3b8"}}>Cadastre mais funções para definir relações.</p>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <PoweredBy/>
-      </div>
-    );
-  }
-
-  if(screen==="usuarios"&&org){
-    const pc2=org.primaryColor||"#2563eb";
-    return(
-      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        {/* Header */}
         <div style={{...hdr(pc2),position:"sticky",top:0,zIndex:20}}>
-          <div><div style={{fontWeight:800,fontSize:15}}>🔑 Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre os avaliadores e configure suas avaliações</div></div>
+          <div><div style={{fontWeight:800,fontSize:15}}>👥 Equipe — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Configure funções e colaboradores em sequência</div></div>
           <div style={{display:"flex",gap:8}}>
+            <button onClick={gerarAtribuicoes} style={{...hBtn,background:"#059669",fontWeight:700}}>⚡ Gerar atribuições automáticas</button>
             <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...hBtn,background:"#16a34a",fontWeight:700}}>📥 Importar Excel</button>
             <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
           </div>
         </div>
-        <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
-          <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
-            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de acesso para colaboradores é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
+
+        <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 60px"}}>
+
+          {/* ── PASSO 1: FUNÇÕES ── */}
+          <div style={{...card,marginBottom:24,border:"2px solid #dbeafe"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <div style={{width:32,height:32,borderRadius:10,background:pc2,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>1</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:15,color:"#1e3a8a"}}>Crie as funções da organização</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Ex: Pastor, Coordenador, Voluntário. Defina quem avalia quem antes de cadastrar usuários.</div>
+              </div>
+              <button onClick={()=>setShowHelpFuncoes(p=>!p)} style={{background:"#eff6ff",border:"1px solid #dbeafe",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontWeight:700,color:"#2563eb",fontSize:14,flexShrink:0}}>?</button>
+            </div>
+            {showHelpFuncoes&&(
+              <div style={{background:"#eff6ff",borderRadius:10,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:13,color:"#1e40af",lineHeight:1.7}}>
+                <strong>Como funciona:</strong> Cadastre as funções (cargos) da organização. Para cada função, defina quais outras ela <strong>avalia</strong> (seus liderados) e por quais ela <strong>é avaliada</strong> (seus líderes). Depois de cadastrar os usuários com suas funções, clique em <strong>"⚡ Gerar atribuições automáticas"</strong> para criar todas as avaliações do ciclo de uma vez.
+              </div>
+            )}
+            {/* Cadastrar nova função */}
+            <div style={{display:"flex",gap:12,marginBottom:16}}>
+              <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} onKeyDown={async e=>{if(e.key==="Enter"&&newFuncao.trim()){const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};await saveFuncao(f);setFuncoes(p=>[...p,f]);setNewFuncao("");}}} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
+              <button onClick={async()=>{
+                if(!newFuncao.trim()) return;
+                const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};
+                await saveFuncao(f);setFuncoes(p=>[...p,f]);setNewFuncao("");
+              }} style={{...btn(pc2),whiteSpace:"nowrap"}}>+ Adicionar</button>
+            </div>
+            {/* Lista de funções */}
+            {funcoes.length===0?(
+              <div style={{textAlign:"center",padding:"24px 0",color:"#94a3b8",fontSize:13}}>Nenhuma função cadastrada ainda. Adicione acima para começar.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {funcoes.map(f=>(
+                  <div key={f.id} style={{background:"#f8faff",borderRadius:12,border:"1px solid #dbeafe",padding:"14px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontWeight:700,fontSize:14,color:"#1e3a8a"}}>{f.nome}</div>
+                      <button onClick={async()=>{if(!window.confirm(`Remover "${f.nome}"?`))return;await deleteFuncao(f.id);setFuncoes(p=>p.filter(x=>x.id!==f.id));}} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#dc2626",fontSize:11,fontWeight:600}}>Remover</button>
+                    </div>
+                    {funcoes.length>1&&(
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Avalia (liderados):</p>
+                          {funcoes.filter(x=>x.id!==f.id).map(x=>{
+                            const checked=(f.avalia||[]).includes(x.id);
+                            return(<label key={x.id} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:"#334155",marginBottom:4}}>
+                              <input type="checkbox" checked={checked} onChange={async()=>{
+                                const nl=checked?(f.avalia||[]).filter(id=>id!==x.id):[...(f.avalia||[]),x.id];
+                                await updateFuncaoRelacoes(f.id,nl,f.avaliada_por||[]);
+                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avalia:nl}:fn));
+                              }} style={{width:14,height:14}}/>{x.nome}
+                            </label>);
+                          })}
+                        </div>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>É avaliada por (líderes):</p>
+                          {funcoes.filter(x=>x.id!==f.id).map(x=>{
+                            const checked=(f.avaliada_por||[]).includes(x.id);
+                            return(<label key={x.id} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:"#334155",marginBottom:4}}>
+                              <input type="checkbox" checked={checked} onChange={async()=>{
+                                const nl=checked?(f.avaliada_por||[]).filter(id=>id!==x.id):[...(f.avaliada_por||[]),x.id];
+                                await updateFuncaoRelacoes(f.id,f.avalia||[],nl);
+                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avaliada_por:nl}:fn));
+                              }} style={{width:14,height:14}}/>{x.nome}
+                            </label>);
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {funcoes.length===1&&<p style={{fontSize:12,color:"#94a3b8"}}>Adicione mais funções para definir as relações de avaliação.</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Add user */}
-          <div style={{...card,marginBottom:20}}>
-            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>➕ Novo usuário</h3>
+          {/* ── PASSO 2: USUÁRIOS ── */}
+          <div style={{...card,border:"2px solid #d1fae5"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <div style={{width:32,height:32,borderRadius:10,background:"#059669",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>2</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:15,color:"#1e3a8a"}}>Cadastre os colaboradores</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Atribua uma função a cada pessoa. Depois clique em "⚡ Gerar atribuições automáticas".</div>
+              </div>
+              <button onClick={()=>setShowHelpUsuarios(p=>!p)} style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontWeight:700,color:"#059669",fontSize:14,flexShrink:0}}>?</button>
+            </div>
+            {showHelpUsuarios&&(
+              <div style={{background:"#f0fdf4",borderRadius:10,padding:"12px 16px",border:"1px solid #bbf7d0",marginBottom:16,fontSize:13,color:"#065f46",lineHeight:1.7}}>
+                Cada colaborador precisa de um login para acessar o sistema e responder suas avaliações. O email é o identificador — cada pessoa deve ter um email único. A senha inicial pode ser simples (ex: "avalie360") e cada pessoa pode alterá-la no primeiro acesso. Você também pode importar uma lista de colaboradores via planilha Excel/CSV usando o botão <strong>"📥 Importar Excel"</strong> no topo.
+              </div>
+            )}
+            {/* Info de acesso */}
+            <div style={{background:"#eff6ff",borderRadius:10,padding:"10px 14px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:12,color:"#1e40af"}}>
+              🔗 Link de acesso dos colaboradores: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
+            </div>
+            {/* Form novo usuário */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label>
                 <input value={newUsuario.nome} onChange={e=>setNewUsuario(p=>({...p,nome:e.target.value}))} style={inp} placeholder="Nome completo"/></div>
@@ -3086,91 +3281,67 @@ export default function App(){
                 </div></div>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
                 <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
-                  <option value="">Sem função definida</option>
+                  <option value="">Sem função</option>
                   {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
                 </select></div>
             </div>
             <button onClick={async()=>{
-              if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()) return;
+              if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()){alert("Preencha nome, email e senha.");return;}
               const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
               await saveUsuario(u);
               setUsuarios(p=>[...p,u]);
               setNewUsuario({nome:"",email:"",senha:"",funcao_id:""});
-            }} style={{...btn("#0891b2"),marginRight:8}}>➕ Adicionar usuário</button>
-            <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...btn("#16a34a")}}>📥 Importar Excel</button>
-          </div>
+            }} style={{...btn("#0891b2")}}>➕ Adicionar colaborador</button>
 
-          {/* Users list */}
-          <div style={{...card}}>
-            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>👥 Usuários cadastrados ({usuarios.length})</h3>
-            {usuarios.length===0?<p style={{color:"#94a3b8",textAlign:"center",padding:"24px 0",fontSize:13}}>Nenhum usuário cadastrado.</p>:
-              usuarios.map(u=>(
-                <div key={u.id}>
-                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap"}}>
-                    <div style={{width:36,height:36,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
-                      {u.nome.slice(0,2).toUpperCase()}
+            {/* Lista de usuários */}
+            {usuarios.length>0&&(
+              <div style={{marginTop:20}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Colaboradores cadastrados ({usuarios.length})</div>
+                {usuarios.map(u=>(
+                  <div key={u.id}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap"}}>
+                      <div style={{width:34,height:34,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{u.nome.slice(0,2).toUpperCase()}</div>
+                      <div style={{flex:1,minWidth:120}}>
+                        <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:""}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
+                          style={{padding:"4px 9px",borderRadius:7,border:"2px solid #6366f1",background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
+                        <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
+                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>📋 Avaliações</button>
+                        <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
+                          style={{padding:"4px 9px",borderRadius:7,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
+                      </div>
                     </div>
-                    <div style={{flex:1,minWidth:120}}>
-                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
-                      <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}</div>
-                    </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
-                        style={{padding:"5px 10px",borderRadius:8,border:`2px solid #6366f1`,background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
-                      <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
-                        style={{padding:"5px 10px",borderRadius:8,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>
-                        📋 Avaliações
-                      </button>
-                      <button onClick={async()=>{
-                          const nova=prompt("Nova senha para "+u.nome+":");
-                          if(!nova||nova.length<4){alert("Senha muito curta.");return;}
-                          await sbFetch(`usuarios?id=eq.${u.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({senha_hash:simpleHash(nova)})});
-                          alert("Senha alterada com sucesso!");
-                        }} style={{padding:"5px 10px",borderRadius:8,border:"2px solid #f59e0b",background:"#fefce8",color:"#d97706",cursor:"pointer",fontSize:11,fontWeight:600}}>🔑 Senha</button>
-                      <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
-                        style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
-                    </div>
+                    {showAtribuicoes===u.id&&(
+                      <AtribuicoesEditor usuario={u} org={org} forms={forms} avaliados={avaliados} ciclo={org.activeCiclo||CICLOS[0]} inp={inp} btn={btn} pc={pc2}/>
+                    )}
                   </div>
-                  {/* Atribuições inline */}
-                  {showAtribuicoes===u.id&&(
-                    <AtribuicoesEditor
-                      usuario={u} org={org} forms={forms} avaliados={avaliados}
-                      ciclo={org.activeCiclo||CICLOS[0]}
-                      inp={inp} btn={btn} pc={pc2}
-                    />
-                  )}
-                </div>
-              ))
-            }
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <PoweredBy/>
 
-        {/* ── Modal edição de usuário ── */}
+        {/* Modal edição de usuário */}
         {editingUsuario&&(
           <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
             <div style={{background:"#fff",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
-              <h3 style={{margin:"0 0 20px",fontSize:16,color:"#1e3a8a",fontWeight:800}}>✏️ Editar usuário</h3>
+              <h3 style={{margin:"0 0 20px",fontSize:16,color:"#1e3a8a",fontWeight:800}}>✏️ Editar colaborador</h3>
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Nome *</label>
-                  <input value={editingUsuario.nome} onChange={e=>setEditingUsuario(p=>({...p,nome:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="Nome completo"/>
-                </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Email *</label>
-                  <input type="email" value={editingUsuario.email} onChange={e=>setEditingUsuario(p=>({...p,email:e.target.value.toLowerCase()}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="email@org.com"/>
-                </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe em branco para não alterar)</span></label>
-                  <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="••••••••"/>
-                </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Função</label>
-                  <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}}>
-                    <option value="">Sem função definida</option>
+                <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Nome *</label>
+                  <input value={editingUsuario.nome} onChange={e=>setEditingUsuario(p=>({...p,nome:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="Nome completo"/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Email *</label>
+                  <input type="email" value={editingUsuario.email} onChange={e=>setEditingUsuario(p=>({...p,email:e.target.value.toLowerCase()}))} style={{...inp,boxSizing:"border-box"}} placeholder="email@org.com"/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe vazio para não alterar)</span></label>
+                  <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="••••••••"/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Função</label>
+                  <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,boxSizing:"border-box"}}>
+                    <option value="">Sem função</option>
                     {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                  </select>
-                </div>
+                  </select></div>
               </div>
               <div style={{display:"flex",gap:10,marginTop:22}}>
                 <button onClick={()=>setEditingUsuario(null)} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:700,fontSize:13}}>Cancelar</button>
@@ -3181,9 +3352,8 @@ export default function App(){
                   else if(editingUsuario.novaSenha.length>0&&editingUsuario.novaSenha.length<4){alert("Senha deve ter ao menos 4 caracteres.");return;}
                   await sbFetch(`usuarios?id=eq.${editingUsuario.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify(patch)});
                   setUsuarios(p=>p.map(u=>u.id===editingUsuario.id?{...u,...patch}:u));
-                  setEditingUsuario(null);
-                  alert("Usuário atualizado!");
-                }} style={{...btn(pc2),flex:2,padding:"10px"}}>💾 Salvar alterações</button>
+                  setEditingUsuario(null);alert("Colaborador atualizado!");
+                }} style={{...btn(pc2),flex:2,padding:"10px"}}>💾 Salvar</button>
               </div>
             </div>
           </div>
@@ -3191,7 +3361,6 @@ export default function App(){
       </div>
     );
   }
-
   // ── IMPORTAÇÃO DE USUÁRIOS ──
   if(screen==="importar_usuarios"&&org){
     const pc3=org.primaryColor||"#2563eb";
@@ -3285,7 +3454,7 @@ export default function App(){
       <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc3),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>📥 Importar Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Importe em massa via planilha Excel</div></div>
-          <button onClick={()=>setScreen("usuarios")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+          <button onClick={()=>setScreen("equipe")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
         </div>
         <div style={{maxWidth:720,margin:"0 auto",padding:"24px 16px 60px"}}>
 
