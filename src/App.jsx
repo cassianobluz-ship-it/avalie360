@@ -1470,6 +1470,9 @@ export default function App(){
   // Onboarding
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [onboardingStep,setOnboardingStep]=useState(0);
+  // Tela Equipe — helps
+  const [showHelpFuncoes,setShowHelpFuncoes]=useState(false);
+  const [showHelpUsuarios,setShowHelpUsuarios]=useState(false);
   // Notificações
   const [notifTab,setNotifTab]=useState("convite");
   const [notifMsg,setNotifMsg]=useState("");
@@ -2311,13 +2314,14 @@ export default function App(){
       {/* ── ONBOARDING MODAL ── */}
       {showOnboarding&&(()=>{
         const steps=[
-          {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação.",btn:"Começar →"},
-          {icon:"👥",title:"Passo 1 — Crie as funções",desc:"Acesse \"👥 Equipe\" e crie as funções da organização (ex: Pastor, Coordenador). Defina quem avalia quem. Isso permite gerar as atribuições automaticamente.",btn:"Entendido →",action:()=>{setShowOnboarding(false);loadFuncoes(org.id).then(fns=>{setFuncoes(fns);loadUsuarios(org.id).then(us=>{setUsuarios(us);setScreen("equipe");});})}},
-          {icon:"👤",title:"Passo 2 — Cadastre os avaliados",desc:"Acesse \"👥 Avaliados\" e cadastre quem será avaliado. Você pode importar via CSV também. Cada avaliado receberá um relatório individual.",btn:"Entendido →",action:()=>{setShowOnboarding(false);setScreen("avaliados");}},
-          {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links de avaliação corretos.",btn:"Entendido →",action:()=>{setShowOnboarding(false);setScreen("settings");}},
-          {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto!",btn:"Fechar e começar! 🚀"},
+          {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação."},
+          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador), defina quem avalia quem, e cadastre os colaboradores com suas funções."},
+          {icon:"👤",title:"Passo 2 — Cadastre os avaliados",desc:"Clique em \"👥 Avaliados\" no menu superior. Cadastre quem será avaliado — você pode importar via CSV. Cada avaliado receberá um relatório individual."},
+          {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Clique em \"⚙️ Config\" no menu superior. Defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links corretamente."},
+          {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"🔗 Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto para começar!"},
         ];
         const s=steps[onboardingStep];
+        const isLast=onboardingStep===steps.length-1;
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
             <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:460,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
@@ -2325,17 +2329,17 @@ export default function App(){
               <div style={{fontSize:52,marginBottom:16}}>{s.icon}</div>
               <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:10}}>{s.title}</h2>
               <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24}}>{s.desc}</p>
-              {/* Progress dots */}
               <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
                 {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===onboardingStep?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
               </div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
                 {onboardingStep>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
                 <button onClick={()=>{
-                  if(s.action){s.action();return;}
-                  if(onboardingStep<steps.length-1){setOnboardingStep(p=>p+1);}
-                  else{setShowOnboarding(false);}
-                }} style={{padding:"12px 28px",borderRadius:10,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:15}}>{s.btn}</button>
+                  if(isLast){setShowOnboarding(false);}
+                  else{setOnboardingStep(p=>p+1);}
+                }} style={{padding:"12px 28px",borderRadius:10,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:15}}>
+                  {isLast?"Fechar e começar! 🚀":"Próximo →"}
+                </button>
               </div>
             </div>
           </div>
@@ -3149,8 +3153,6 @@ export default function App(){
   // ── TELA DE FUNÇÕES/CARGOS ───────────────────────────────────────
   if(screen==="equipe"&&org){
     const pc2=org.primaryColor||"#2563eb";
-    const [showHelpFuncoes,setShowHelpFuncoes]=React.useState(false);
-    const [showHelpUsuarios,setShowHelpUsuarios]=React.useState(false);
 
     async function gerarAtribuicoes(){
       const ats2=await loadAtribuicoesOrg(org.id,org.activeCiclo||CICLOS[0]);
