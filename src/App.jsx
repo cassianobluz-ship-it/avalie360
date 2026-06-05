@@ -2347,7 +2347,7 @@ export default function App(){
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
             <LogoUploader value={cfg.logoUrl||""} onChange={url=>setCfg(p=>({...p,logoUrl:url}))} color={cfg.primaryColor||"#2563eb"}/>
-            <div style={{marginTop:8}}><label style={{fontSize:10,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:4}}>OU COLE UMA URL</label><input value={cfg.logoUrl||""} onChange={e=>setCfg(p=>({...p,logoUrl:e.target.value}))} style={inp} placeholder="https://…"/></div>
+            <div style={{marginTop:8}}><label style={{fontSize:10,fontWeight:700,color:"#94a3b8",display:"block",marginBottom:4}}>Cole o link (URL) da logomarca <span style={{fontWeight:400}}>(ex: https://suaorg.com/logo.png)</span></label><input value={cfg.logoUrl||""} onChange={e=>setCfg(p=>({...p,logoUrl:e.target.value}))} style={inp} placeholder="https://suaorg.com/logo.png"/></div>
           </div>
           <div style={{marginBottom:14}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={cfg.primaryColor||"#2563eb"} onChange={e=>setCfg(p=>({...p,primaryColor:e.target.value}))} style={{width:48,height:40,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/><input value={cfg.primaryColor||"#2563eb"} onChange={e=>setCfg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/></div></div>
           <div style={{marginBottom:14}}>
@@ -2436,37 +2436,44 @@ export default function App(){
         {/* Notificações */}
         <div style={{...card,marginTop:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🔔 Notificações</h3>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Envie convites ou lembretes por email para os colaboradores do ciclo ativo.</p>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            {["convite","lembrete"].map(t=>(
-              <button key={t} onClick={()=>setNotifTab(t)}
-                style={{padding:"7px 16px",borderRadius:R.sm,border:"none",background:notifTab===t?pc:"#f1f5f9",color:notifTab===t?"#fff":"#64748b",cursor:"pointer",fontWeight:notifTab===t?700:500,fontSize:13}}>
-                {t==="convite"?"📨 Convite":"⏰ Lembrete"}
-              </button>
-            ))}
-          </div>
-          <div style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",border:"1px solid #dbeafe",marginBottom:14,fontSize:13,color:"#1e40af",lineHeight:1.6}}>
-            {notifTab==="convite"
-              ?"Envia um email de convite para todos os usuários que ainda não iniciaram suas avaliações no ciclo ativo, com o link de acesso e instruções."
-              :"Envia um lembrete por email para todos os usuários com avaliações pendentes no ciclo ativo, incentivando a conclusão."}
-          </div>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Envie emails para os colaboradores do ciclo ativo.</p>
           {notifMsg&&<div style={{background:notifMsg.startsWith("✅")?"#f0fdf4":"#fef2f2",borderRadius:R.md,padding:"10px 14px",border:`1px solid ${notifMsg.startsWith("✅")?"#86efac":"#fecaca"}`,fontSize:13,color:notifMsg.startsWith("✅")?"#166534":"#dc2626",marginBottom:12}}>{notifMsg}</div>}
-          <button onClick={async()=>{
-            if(!window.confirm(`Enviar ${notifTab==="convite"?"convites":"lembretes"} por email para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`)) return;
-            setNotifSending(true);setNotifMsg("");
-            try{
-              const res=await fetch("/api/send-notifications",{
-                method:"POST",headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:notifTab,baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})
-              });
-              const data=await res.json();
-              if(!res.ok) throw new Error(data.error||"Erro ao enviar");
-              setNotifMsg(`✅ ${data.enviados} email(s) enviado(s) com sucesso!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);
-            }catch(e){setNotifMsg("❌ Erro: "+e.message);}
-            setNotifSending(false);
-          }} disabled={notifSending} style={{...btn(notifTab==="convite"?"#2563eb":"#d97706"),opacity:notifSending?0.6:1}}>
-            {notifSending?"⏳ Enviando…":notifTab==="convite"?"📨 Enviar convites agora":"⏰ Enviar lembretes agora"}
-          </button>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:200,background:"#f8faff",borderRadius:12,padding:16,border:"1px solid #dbeafe"}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#1e3a8a",marginBottom:4}}>📨 Convites</div>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:12,lineHeight:1.5}}>Para quem ainda não iniciou as avaliações. Inclui o link de acesso e instruções.</div>
+              <button onClick={async()=>{
+                if(!window.confirm(`Enviar convites para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`))return;
+                setNotifSending(true);setNotifMsg("");
+                try{
+                  const res=await fetch("/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"convite",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
+                  const data=await res.json();
+                  if(!res.ok)throw new Error(data.error||"Erro ao enviar");
+                  setNotifMsg(`✅ ${data.enviados} email(s) enviado(s)!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);}
+                catch(e){setNotifMsg("❌ Erro: "+e.message);}
+                setNotifSending(false);
+              }} disabled={notifSending} style={{...btn("#2563eb"),width:"100%",opacity:notifSending?0.6:1}}>
+                {notifSending?"⏳ Enviando…":"📨 Enviar convites"}
+              </button>
+            </div>
+            <div style={{flex:1,minWidth:200,background:"#fffbeb",borderRadius:12,padding:16,border:"1px solid #fde68a"}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#92400e",marginBottom:4}}>⏰ Lembretes</div>
+              <div style={{fontSize:12,color:"#78350f",marginBottom:12,lineHeight:1.5}}>Para quem já recebeu o convite mas ainda não concluiu. Incentiva a conclusão.</div>
+              <button onClick={async()=>{
+                if(!window.confirm(`Enviar lembretes para os colaboradores com avaliações pendentes no ciclo ${cfg.activeCiclo||CICLOS[0]}?`))return;
+                setNotifSending(true);setNotifMsg("");
+                try{
+                  const res=await fetch("/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:cfg.activeCiclo||CICLOS[0],tipo:"lembrete",baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
+                  const data=await res.json();
+                  if(!res.ok)throw new Error(data.error||"Erro ao enviar");
+                  setNotifMsg(`✅ ${data.enviados} email(s) enviado(s)!${data.ignorados>0?` (${data.ignorados} já concluíram)`:""}`);}
+                catch(e){setNotifMsg("❌ Erro: "+e.message);}
+                setNotifSending(false);
+              }} disabled={notifSending} style={{...btn("#d97706"),width:"100%",opacity:notifSending?0.6:1}}>
+                {notifSending?"⏳ Enviando…":"⏰ Enviar lembretes"}
+              </button>
+            </div>
+          </div>
         </div>
 
         <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"14px 20px",fontSize:15,marginTop:16}}>💾 Salvar configurações</button>
