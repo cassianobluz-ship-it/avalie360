@@ -2181,9 +2181,125 @@ export default function App(){
         {dashTab==="resultados"&&(dData.length===0?(
           <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📊 Média por área</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Formulário"} · {dAvaliado?usuarios.find(u=>u.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>Frequência de cada resposta em todas as perguntas · {dForm?.title||""} · {dci}</p><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
+          {/* CARD 1 — Saúde do time: heatmap por dimensão */}
+          {(()=>{
+            const bNormais=bStats.filter(b=>!b.isRisk&&b.media>0);
+            if(bNormais.length===0) return null;
+            return(
+              <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
+                <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🚦 Saúde do time por dimensão</h3>
+                <p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Todos os formulários"} · {dAvaliado?usuarios.find(u=>u.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {bNormais.sort((a,b)=>a.media-b.media).map((b,i)=>{
+                    const cor=b.media>=4?"#059669":b.media>=3?"#d97706":"#dc2626";
+                    const bg=b.media>=4?"#f0fdf4":b.media>=3?"#fefce8":"#fef2f2";
+                    const icone=b.media>=4?"🟢":b.media>=3?"🟡":"🔴";
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:bg,border:`1px solid ${b.media>=4?"#86efac":b.media>=3?"#fde68a":"#fecaca"}`}}>
+                        <span style={{fontSize:16,flexShrink:0}}>{icone}</span>
+                        <span style={{fontSize:13,color:"#334155",flex:1,fontWeight:500}}>{b.fullName}</span>
+                        <div style={{width:120,background:"#e2e8f0",borderRadius:99,height:8,flexShrink:0}}>
+                          <div style={{width:`${(b.media/5)*100}%`,background:cor,height:8,borderRadius:99,transition:"width 0.6s"}}/>
+                        </div>
+                        <span style={{fontSize:13,fontWeight:800,color:cor,minWidth:36,textAlign:"right"}}>{b.media.toFixed(1)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:"#64748b"}}>
+                  <span>🟢 Forte (≥ 4.0)</span>
+                  <span>🟡 Atenção (3.0–3.9)</span>
+                  <span>🔴 Prioridade (&lt; 3.0)</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* CARD 2 — Pontos de atenção + Riscos */}
+          {(()=>{
+            const bNormais=bStats.filter(b=>!b.isRisk&&b.media>0);
+            const bRisco=bStats.filter(b=>b.isRisk);
+            const fracos=bNormais.filter(b=>b.media<3.5).sort((a,b)=>a.media-b.media).slice(0,3);
+            const riscoAlerta=bRisco.filter(b=>b.media>1.5);
+            if(fracos.length===0&&riscoAlerta.length===0) return(
+              <div style={{background:"#f0fdf4",borderRadius:R.xl,padding:20,border:"1px solid #86efac",marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:28}}>✅</span>
+                <div><div style={{fontWeight:700,color:"#166534",fontSize:14}}>Time saudável</div><div style={{fontSize:12,color:"#166534",marginTop:2}}>Todas as dimensões estão acima de 3.5 e sem sinais de alerta.</div></div>
+              </div>
+            );
+            return(
+              <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"2px solid #fecaca",marginBottom:20}}>
+                <h3 style={{color:"#dc2626",marginBottom:4,fontSize:15,fontWeight:700}}>⚠️ Pontos de atenção</h3>
+                <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Dimensões que merecem ação prioritária do gestor</p>
+                {fracos.map((b,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,background:"#fef2f2",border:"1px solid #fecaca",marginBottom:8}}>
+                    <span style={{fontSize:16}}>🔴</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13,color:"#991b1b"}}>{b.fullName}</div>
+                      <div style={{fontSize:11,color:"#dc2626",marginTop:2}}>Média {b.media.toFixed(1)}/5 — {b.media<2.5?"Atenção urgente":"Abaixo do esperado"}</div>
+                    </div>
+                    <span style={{fontSize:20,fontWeight:800,color:"#dc2626"}}>{b.media.toFixed(1)}</span>
+                  </div>
+                ))}
+                {riscoAlerta.map((b,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,background:"#fffbeb",border:"1px solid #fde68a",marginBottom:8}}>
+                    <span style={{fontSize:16}}>⚠️</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13,color:"#92400e"}}>{b.fullName}</div>
+                      <div style={{fontSize:11,color:"#d97706",marginTop:2}}>Sinal preventivo detectado — requer atenção</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* CARD 3 — Ranking Top/Fundo (só quando sem avaliado selecionado) */}
+          {!dAvaliado&&(()=>{
+            const ranking=usuarios.filter(u=>u.participa_ciclo!==false).map(u=>{
+              const rs=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id&&r.avaliadoId===u.id&&r.formId!=="autoavaliacao");
+              if(rs.length===0)return null;
+              const medias=bStats.filter(b=>!b.isRisk).map(b=>{const sc=rs.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return sc.length?(sc.reduce((a,x)=>a+x,0)/sc.length):0;}).filter(v=>v>0);
+              if(medias.length===0)return null;
+              const m=parseFloat((medias.reduce((a,x)=>a+x,0)/medias.length).toFixed(2));
+              return{id:u.id,nome:u.nome,media:m};
+            }).filter(Boolean).sort((a,b)=>b.media-a.media);
+            if(ranking.length<2)return null;
+            const top=ranking.slice(0,3);
+            const fundo=ranking.slice(-3).reverse();
+            return(
+              <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
+                <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏆 Destaques do time</h3>
+                <p style={{fontSize:12,color:"#64748b",marginBottom:16}}>Visão dos outros (excluindo autoavaliação) · {dForm?.title||""} · Ciclo {dci}</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#059669",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>🥇 Maiores médias</div>
+                    {top.map((u,i)=>(
+                      <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:"#f0fdf4",border:"1px solid #86efac",marginBottom:6}}>
+                        <span style={{fontSize:13,fontWeight:800,color:"#059669",minWidth:18}}>{i+1}º</span>
+                        <span style={{fontSize:13,color:"#166534",flex:1,fontWeight:500}}>{u.nome}</span>
+                        <span style={{fontSize:14,fontWeight:800,color:"#059669"}}>{u.media.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#dc2626",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>🎯 Mais precisam de apoio</div>
+                    {fundo.map((u,i)=>(
+                      <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:"#fef2f2",border:"1px solid #fecaca",marginBottom:6}}>
+                        <span style={{fontSize:13,color:"#991b1b",flex:1,fontWeight:500}}>{u.nome}</span>
+                        <span style={{fontSize:14,fontWeight:800,color:"#dc2626"}}>{u.media.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* CARD 4 — Detalhamento individual (quando avaliado selecionado) */}
+          {dAvaliado&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>}
+
+          {/* CARD 5 — Reflexões abertas */}
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
         {/* Radar */}
