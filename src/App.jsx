@@ -947,12 +947,21 @@ async function loginUsuario(orgId, email, senha) {
 }
 
 async function loadAtribuicoes(usuarioId, ciclo) {
+  const FORM_TITLES = {
+    "autoavaliacao": "🪞 Autoavaliação",
+    "pares": "🤝 Avaliação de Pares",
+    "lideranca": "🧭 Avaliação pela Liderança",
+    "lideranca_direta": "🧭 Avaliação pela Liderança",
+    "liderados": "🌱 Avaliação pelos Liderados",
+    "pastoral": "⛪ Avaliação Pastoral",
+  };
   try {
     const rows = await sbFetch(`atribuicoes?usuario_id=eq.${usuarioId}&ciclo=eq.${encodeURIComponent(ciclo)}&select=*`);
     return (rows || []).map(r => ({
       id: r.id,
       ciclo: r.ciclo,
       form_id: r.form_id,
+      formTitle: FORM_TITLES[r.form_id] || r.form_id,
       usuario_id: r.usuario_id,
       avaliado_id: r.avaliado_id || "",
       avaliado_nome: r.avaliado_nome || "",
@@ -1285,7 +1294,7 @@ function ScBar({label,score,isRisk}){
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────
-function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}){
+function AtribuicoesEditor({usuario, org, ciclo, pc}){
   const [ats, setAts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1293,62 +1302,32 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
     loadAtribuicoes(usuario.id, ciclo).then(r=>{ setAts(r); setLoading(false); });
   },[usuario.id, ciclo]);
 
-  async function toggle(formId, avaliadoId, avaliadoNome){
-    const exists = ats.find(a=>a.form_id===formId&&a.avaliado_id===avaliadoId);
-    if(exists){
-      await sbFetch(`atribuicoes?id=eq.${exists.id}`,{method:"DELETE",prefer:""});
-      setAts(p=>p.filter(a=>a.id!==exists.id));
-    } else {
-      const avObj = avaliados.find(a=>a.id===avaliadoId);
-      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",avaliado_funcao:avObj?.funcao_id||"",concluida:false,created_at:new Date().toISOString()};
-      await saveAtribuicao(na);
-      setAts(p=>[...p,na]);
-    }
-  }
-
   if(loading) return <div style={{padding:16,color:"#94a3b8",fontSize:12}}>Carregando...</div>;
 
   return(
     <div style={{background:"#f8faff",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #dbeafe"}}>
-      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Avaliações de {usuario.nome}</p>
-      {forms.map(f=>{
-        const needsAvaliado = ["liderados","lideranca_direta","lideranca","pares","pastoral"].includes(f.id);
-        if(needsAvaliado && avaliados.length>0){
-          return(
-            <div key={f.id} style={{marginBottom:12}}>
-              <p style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:6}}>{f.icon} {f.title}</p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                {avaliados.map(av=>{
-                  const checked = !!ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id);
-                  return(
-                    <div key={av.id} style={{display:"flex",alignItems:"center",gap:4}}>
-                      <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b",flex:1}}>
-                        <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,av.id,av.nome)} style={{cursor:"pointer"}}/>
-                        {av.nome}
-                        {checked&&ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id)?.concluida&&<span style={{fontSize:10,color:"#10b981",marginLeft:4}}>✓</span>}
-                      </label>
-                      {checked&&ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id)?.concluida&&(
-                        <button onClick={async()=>{
-                          const at=ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id);
-                          if(at){await resetAtribuicao(at.id);setAts(p=>p.map(x=>x.id===at.id?{...x,concluida:false}:x));}
-                        }} title="Reiniciar avaliação" style={{padding:"6px 8px",borderRadius:8,border:"none",background:"#fef3c7",color:"#d97706",cursor:"pointer",fontSize:11,fontWeight:700,flexShrink:0}}>↺</button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Atribuições de {usuario.nome} — {ciclo}</p>
+      <p style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>Estas são as avaliações atribuídas a este colaborador. Use "✕" para remover exceções. Para gerar novas, use o botão ⚡ no topo.</p>
+      {ats.length===0?(
+        <p style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>Nenhuma atribuição gerada ainda para este ciclo.</p>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {ats.map(at=>(
+            <div key={at.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:at.concluida?"#f0fdf4":"#fff",border:`1px solid ${at.concluida?"#86efac":"#e2e8f0"}`}}>
+              <span style={{fontSize:11,color:"#64748b",minWidth:140,flexShrink:0}}>{at.formTitle||at.form_id}</span>
+              <span style={{fontSize:13,color:"#334155",flex:1,fontWeight:500}}>{at.avaliado_nome||"—"}</span>
+              {at.concluida&&<span style={{fontSize:10,color:"#16a34a",fontWeight:700,flexShrink:0}}>✓ Concluída</span>}
+              {!at.concluida&&(
+                <button onClick={async()=>{
+                  if(!window.confirm(`Remover atribuição de ${usuario.nome} → ${at.avaliado_nome}?`))return;
+                  await sbFetch(`atribuicoes?id=eq.${at.id}`,{method:"DELETE",prefer:""});
+                  setAts(p=>p.filter(a=>a.id!==at.id));
+                }} style={{padding:"3px 8px",borderRadius:6,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:700,flexShrink:0}}>✕ Remover</button>
+              )}
             </div>
-          );
-        } else {
-          const checked = !!ats.find(a=>a.form_id===f.id&&a.avaliado_id==="");
-          return(
-            <label key={f.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:8,background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b"}}>
-              <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,"","")} style={{cursor:"pointer"}}/>
-              {f.icon} {f.title}
-            </label>
-          );
-        }
-      })}
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3246,7 +3225,7 @@ export default function App(){
                     </div>
                     {funcoes.length>1&&(
                       <div>
-                        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Avalia (liderados):</p>
+                        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Avalia:</p>
                         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                           {funcoes.filter(x=>x.id!==f.id).map(x=>{
                             const checked=(f.avalia||[]).includes(x.id);
@@ -3371,7 +3350,7 @@ export default function App(){
                       </div>
                     </div>
                     {showAtribuicoes===u.id&&(
-                      <AtribuicoesEditor usuario={u} org={org} forms={forms} avaliados={usuarios.filter(x=>x.participa_ciclo!==false&&x.id!==u.id)} ciclo={org.activeCiclo||CICLOS[0]} inp={inp} btn={btn} pc={pc2}/>
+                      <AtribuicoesEditor usuario={u} org={org} ciclo={org.activeCiclo||CICLOS[0]} pc={pc2}/>
                     )}
                   </div>
                 ))}
