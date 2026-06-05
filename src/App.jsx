@@ -2350,7 +2350,7 @@ export default function App(){
       {showOnboarding&&(()=>{
         const steps=[
           {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação."},
-          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador), defina quem avalia quem, e cadastre os colaboradores com suas funções."},
+          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores com suas funções.\n\n💡 Autoavaliação e Avaliação de Pares são geradas automaticamente — você não precisa configurar isso."},
           {icon:"👤",title:"Passo 2 — Cadastre os avaliados",desc:"Clique em \"👥 Avaliados\" no menu superior. Cadastre quem será avaliado — você pode importar via CSV. Cada avaliado receberá um relatório individual."},
           {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Clique em \"⚙️ Config\" no menu superior. Defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links corretamente."},
           {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"🔗 Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto para começar!"},
@@ -2363,7 +2363,7 @@ export default function App(){
               <button onClick={()=>setShowOnboarding(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#94a3b8"}}>✕</button>
               <div style={{fontSize:52,marginBottom:16}}>{s.icon}</div>
               <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:10}}>{s.title}</h2>
-              <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24}}>{s.desc}</p>
+              <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24,whiteSpace:"pre-line"}}>{s.desc}</p>
               <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
                 {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===onboardingStep?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
               </div>
@@ -3228,12 +3228,12 @@ export default function App(){
             </div>
             {showHelpFuncoes&&(
               <div style={{background:"#eff6ff",borderRadius:10,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:13,color:"#1e40af",lineHeight:1.7}}>
-                <strong>Como funciona:</strong> Cadastre as funções (cargos) da organização. Para cada função, defina quais outras ela <strong>avalia</strong> (seus liderados) e por quais ela <strong>é avaliada</strong> (seus líderes).<br/>
-                <span style={{display:"block",marginTop:8,padding:"8px 12px",background:"#dbeafe",borderRadius:8,fontSize:12}}>
-                  💡 <strong>Avaliação de Pares</strong> e <strong>Autoavaliação</strong> são geradas automaticamente — não precisam ser configuradas aqui. Pares: pessoas da <em>mesma função</em> se avaliam entre si. Auto: cada pessoa avalia a si mesma.
-                </span>
+                <strong>Como funciona:</strong> Para cada função, marque quais outras ela avalia (seus liderados). Depois cadastre os usuários com suas funções e clique em ⚡ Gerar atribuições.
               </div>
             )}
+            <div style={{background:"#dbeafe",borderRadius:10,padding:"10px 14px",border:"1px solid #bfdbfe",marginBottom:16,fontSize:12,color:"#1e40af",lineHeight:1.6}}>
+              💡 <strong>Geração automática:</strong> <strong>Autoavaliação</strong> (cada pessoa avalia a si mesma) e <strong>Avaliação de Pares</strong> (pessoas da mesma função se avaliam entre si) são criadas automaticamente ao clicar em ⚡ — não precisam ser configuradas aqui.
+            </div>
             {/* Cadastrar nova função */}
             <div style={{display:"flex",gap:12,marginBottom:16}}>
               <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} onKeyDown={async e=>{if(e.key==="Enter"&&newFuncao.trim()){const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};const ok=await saveFuncao(f);if(ok){setFuncoes(p=>[...p,f]);setNewFuncao("");}}}} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
@@ -3256,29 +3256,28 @@ export default function App(){
                       <button onClick={async()=>{if(!window.confirm(`Remover "${f.nome}"?`))return;await deleteFuncao(f.id);setFuncoes(p=>p.filter(x=>x.id!==f.id));}} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#dc2626",fontSize:11,fontWeight:600}}>Remover</button>
                     </div>
                     {funcoes.length>1&&(
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                        <div>
-                          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Avalia (liderados):</p>
+                      <div>
+                        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Avalia (liderados):</p>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                           {funcoes.filter(x=>x.id!==f.id).map(x=>{
                             const checked=(f.avalia||[]).includes(x.id);
-                            return(<label key={x.id} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:"#334155",marginBottom:4}}>
+                            return(<label key={x.id} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:"#334155",background:checked?"#eff6ff":"#f8faff",border:`1px solid ${checked?"#bfdbfe":"#e2e8f0"}`,borderRadius:8,padding:"5px 10px"}}>
                               <input type="checkbox" checked={checked} onChange={async()=>{
                                 const nl=checked?(f.avalia||[]).filter(id=>id!==x.id):[...(f.avalia||[]),x.id];
-                                await updateFuncaoRelacoes(f.id,nl,f.avaliada_por||[]);
-                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avalia:nl}:fn));
-                              }} style={{width:14,height:14}}/>{x.nome}
-                            </label>);
-                          })}
-                        </div>
-                        <div>
-                          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>É avaliada por (líderes):</p>
-                          {funcoes.filter(x=>x.id!==f.id).map(x=>{
-                            const checked=(f.avaliada_por||[]).includes(x.id);
-                            return(<label key={x.id} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:"#334155",marginBottom:4}}>
-                              <input type="checkbox" checked={checked} onChange={async()=>{
-                                const nl=checked?(f.avaliada_por||[]).filter(id=>id!==x.id):[...(f.avaliada_por||[]),x.id];
-                                await updateFuncaoRelacoes(f.id,f.avalia||[],nl);
-                                setFuncoes(p=>p.map(fn=>fn.id===f.id?{...fn,avaliada_por:nl}:fn));
+                                // Deriva avaliada_por automaticamente
+                                const avaliada_por_atual=f.avaliada_por||[];
+                                await updateFuncaoRelacoes(f.id,nl,avaliada_por_atual);
+                                setFuncoes(p=>p.map(fn=>{
+                                  if(fn.id===f.id) return{...fn,avalia:nl};
+                                  // Atualiza avaliada_por da função alvo automaticamente
+                                  if(fn.id===x.id){
+                                    const ap=fn.avaliada_por||[];
+                                    const novoAp=checked?ap.filter(id=>id!==f.id):[...ap,f.id];
+                                    updateFuncaoRelacoes(fn.id,fn.avalia||[],novoAp);
+                                    return{...fn,avaliada_por:novoAp};
+                                  }
+                                  return fn;
+                                }));
                               }} style={{width:14,height:14}}/>{x.nome}
                             </label>);
                           })}
