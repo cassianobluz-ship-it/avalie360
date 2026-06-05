@@ -696,6 +696,54 @@ async function saveSharedReport(orgId, data) {
   } catch(e) { console.error("saveSharedReport:", e); return null; }
 }
 
+// ─── CUPONS ──────────────────────────────────────────────────────
+async function loadCupons() {
+  try {
+    const rows = await sbFetch("cupons?select=*&order=created_at.desc");
+    return rows || [];
+  } catch(e) { return []; }
+}
+
+async function saveCupom(c) {
+  try {
+    await sbFetch("cupons", {
+      method:"POST", prefer:"resolution=merge-duplicates,return=minimal",
+      body:JSON.stringify(c),
+    });
+    return true;
+  } catch(e) { console.error("saveCupom:",e); return false; }
+}
+
+async function toggleCupomAtivo(id, ativo) {
+  try {
+    await sbFetch(`cupons?id=eq.${id}`, {
+      method:"PATCH", prefer:"return=minimal",
+      body:JSON.stringify({ ativo }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function deleteCupom(id) {
+  try {
+    await sbFetch(`cupons?id=eq.${id}`, { method:"DELETE", prefer:"" });
+    return true;
+  } catch(e) { return false; }
+}
+
+// Validação pública de cupom (chamada pela landing via /api/validate-cupom)
+// Esta função é usada no App.jsx para validar cupom no upgrade do Plano Personalizado
+async function validarCupomUpgrade(codigo) {
+  try {
+    const rows = await sbFetch(`cupons?codigo=eq.${encodeURIComponent(codigo.toUpperCase())}&ativo=eq.true&select=*&limit=1`);
+    if (!rows || rows.length === 0) return null;
+    const c = rows[0];
+    if (!["upgrade","ambos"].includes(c.aplicavel_em)) return null;
+    if (c.usos_max !== null && c.usos >= c.usos_max) return null;
+    return c;
+  } catch(e) { return null; }
+}
+
 // ─── FUNÇÕES / CARGOS ────────────────────────────────────────────
 async function loadFuncoes(orgId) {
   try {
@@ -1210,7 +1258,23 @@ function LinkCard({label,link,color="#2563eb"}){
   );
 }
 
-function ScBar({label,score}){
+function ScBar({label,score,isRisk}){
+  if(isRisk){
+    // Blocos de risco: visual invertido — baixo score = positivo
+    const semAlerta = score<=1.5;
+    return(
+      <div style={{marginBottom:12,padding:"10px 14px",borderRadius:10,background:semAlerta?"#f0fdf4":"#fffbeb",border:`1px solid ${semAlerta?"#86efac":"#fde68a"}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,color:"#475569",fontWeight:500}}>{label}</span>
+          {score>0?(
+            <span style={{fontSize:13,fontWeight:700,color:semAlerta?"#059669":"#d97706",display:"flex",alignItems:"center",gap:4}}>
+              {semAlerta?"✅ Nenhum sinal de alerta":"⚠️ Atenção"}
+            </span>
+          ):<span style={{fontSize:13,color:"#94a3b8"}}>—</span>}
+        </div>
+      </div>
+    );
+  }
   return(
     <div style={{marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
@@ -1356,6 +1420,13 @@ export default function App(){
   const [showUpgradeModal,setShowUpgradeModal]=useState(false);
   const [funcoes,setFuncoes]=useState([]); // [{id, nome, avalia:[], avaliada_por:[]}]
   const [newFuncao,setNewFuncao]=useState("");
+  const [cupons,setCupons]=useState([]);
+  const [newCupom,setNewCupom]=useState({codigo:"",desconto_pct:100,aplicavel_em:"ambos",usos_max:""});
+  const [loadingCupons,setLoadingCupons]=useState(false);
+  const [upgradeCupomCode,setUpgradeCupomCode]=useState("");
+  const [upgradeCupomMsg,setUpgradeCupomMsg]=useState(null);
+  const [upgradeCupomAplicado,setUpgradeCupomAplicado]=useState(null);
+  const [showUpgradeCupom,setShowUpgradeCupom]=useState(false);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
@@ -1511,8 +1582,8 @@ export default function App(){
   const fForm=forms[ffi];const fBloc=fForm?.blocos[fbi];const isLast=fForm&&fbi===fForm.blocos.length-1;
   const dForm=forms[dfi];
   const dData=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id&&(dAvaliado===""||r.avaliadoId===dAvaliado));
-  const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0};}):[];
-  const mgeral=bStats.length?(bStats.reduce((a,b)=>a+b.media,0)/bStats.length).toFixed(1):"—";
+  const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const isRisk=b.scaleType==="yesno"||(b.id&&b.id.startsWith("riscos_"));const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0,isRisk};}):[];
+  const mgeral=bStats.length?(bStats.filter(b=>!b.isRisk).reduce((a,b)=>a+b.media,0)/Math.max(1,bStats.filter(b=>!b.isRisk).length)).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
   const dist=[1,2,3,4,5].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,12),count:c};});
   // Comparativo entre ciclos
@@ -1865,6 +1936,74 @@ export default function App(){
             ))
           }
         </div>
+        <div style={{...card,marginTop:24}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,margin:0}}>🎟️ Cupons de desconto</h3>
+            <button onClick={async()=>{setLoadingCupons(true);const c=await loadCupons();setCupons(c);setLoadingCupons(false);}}
+              style={{padding:"6px 14px",borderRadius:8,border:"1.5px solid #dbeafe",background:"#fff",color:"#2563eb",cursor:"pointer",fontSize:12,fontWeight:600}}>
+              {loadingCupons?"⏳ Carregando…":"↻ Carregar cupons"}
+            </button>
+          </div>
+          {/* Criar cupom */}
+          <div style={{background:"#f8faff",borderRadius:12,padding:16,border:"1px solid #dbeafe",marginBottom:20}}>
+            <p style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:12}}>Novo cupom</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CÓDIGO *</label>
+                <input value={newCupom.codigo} onChange={e=>setNewCupom(p=>({...p,codigo:e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,"")}))} style={inp} placeholder="Ex: SEPAL2026"/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>DESCONTO (%)</label>
+                <input type="number" min="1" max="100" value={newCupom.desconto_pct} onChange={e=>setNewCupom(p=>({...p,desconto_pct:Math.min(100,Math.max(1,parseInt(e.target.value)||1))}))} style={inp}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>APLICÁVEL EM</label>
+                <select value={newCupom.aplicavel_em} onChange={e=>setNewCupom(p=>({...p,aplicavel_em:e.target.value}))} style={inp}>
+                  <option value="ambos">Contratação + Upgrade</option>
+                  <option value="contratacao">Só contratação</option>
+                  <option value="upgrade">Só upgrade R$300</option>
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>USOS MÁXIMOS <span style={{fontWeight:400,color:"#94a3b8"}}>(em branco = ilimitado)</span></label>
+                <input type="number" min="1" value={newCupom.usos_max} onChange={e=>setNewCupom(p=>({...p,usos_max:e.target.value}))} style={inp} placeholder="Ilimitado"/>
+              </div>
+            </div>
+            <button onClick={async()=>{
+              if(!newCupom.codigo.trim()){alert("Código obrigatório.");return;}
+              const c={id:genId(10),codigo:newCupom.codigo.trim(),desconto_pct:newCupom.desconto_pct,aplicavel_em:newCupom.aplicavel_em,usos_max:newCupom.usos_max?parseInt(newCupom.usos_max):null,usos:0,ativo:true,created_at:new Date().toISOString()};
+              const ok=await saveCupom(c);
+              if(ok){setCupons(p=>[c,...p]);setNewCupom({codigo:"",desconto_pct:100,aplicavel_em:"ambos",usos_max:""});alert(`✅ Cupom "${c.codigo}" criado!`);}
+              else alert("Erro ao criar cupom.");
+            }} style={{...btn("#16a34a")}}>Criar cupom</button>
+          </div>
+          {/* Lista */}
+          {cupons.length===0?(
+            <p style={{color:"#94a3b8",textAlign:"center",padding:"16px 0",fontSize:13}}>Clique em "Carregar cupons" para ver os existentes.</p>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {cupons.map(c=>(
+                <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:10,border:`1px solid ${c.ativo?"#dbeafe":"#e2e8f0"}`,background:c.ativo?"#f8faff":"#f8f8f8",flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:120}}>
+                    <div style={{fontWeight:700,fontSize:14,color:c.ativo?"#1e3a8a":"#94a3b8",fontFamily:"monospace"}}>{c.codigo}</div>
+                    <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
+                      {c.desconto_pct===100?"Gratuito":`${c.desconto_pct}% off`} · {c.aplicavel_em==="ambos"?"Contratação+Upgrade":c.aplicavel_em==="contratacao"?"Só contratação":"Só upgrade"} · {c.usos} uso{c.usos!==1?"s":""}
+                      {c.usos_max?` / ${c.usos_max} máx`:" (ilimitado)"}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={async()=>{const ok=await toggleCupomAtivo(c.id,!c.ativo);if(ok)setCupons(p=>p.map(x=>x.id===c.id?{...x,ativo:!x.ativo}:x));}}
+                      style={{padding:"5px 10px",borderRadius:6,border:`1.5px solid ${c.ativo?"#f59e0b":"#16a34a"}`,background:c.ativo?"#fffbeb":"#f0fdf4",color:c.ativo?"#d97706":"#16a34a",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                      {c.ativo?"⏸ Desativar":"▶ Ativar"}
+                    </button>
+                    <button onClick={async()=>{if(!confirm(`Remover cupom "${c.codigo}"?`))return;const ok=await deleteCupom(c.id);if(ok)setCupons(p=>p.filter(x=>x.id!==c.id));}}
+                      style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <PoweredBy/>
     </div>
@@ -1980,9 +2119,9 @@ export default function App(){
         {dashTab==="resultados"&&(dData.length===0?(
           <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📊 Média por área</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>{dForm?.title||"Formulário"} · {dAvaliado?avaliados.find(a=>a.id===dAvaliado)?.nome||"Avaliado":"Todos os avaliados"} · Ciclo {dci}</p><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><p style={{fontSize:12,color:"#64748b",marginBottom:16}}>Frequência de cada resposta em todas as perguntas · {dForm?.title||""} · {dci}</p><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media} isRisk={b.isRisk}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
         {/* Status */}
@@ -2067,7 +2206,7 @@ export default function App(){
             <span style={{fontSize:22}}>{(cfg.orgType||"religiosa")==="religiosa"?"⛪":"🏢"}</span>
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e3a8a"}}>{(cfg.orgType||"religiosa")==="religiosa"?"Organização Religiosa":"Organização Não-religiosa"}</div>
-              <div style={{fontSize:12,color:"#64748b"}}>{(cfg.orgType||"religiosa")==="religiosa"?"Igrejas, missões, equipes ministeriais — linguagem ministerial":"Empresas, ONGs, escolas — linguagem profissional"}</div>
+              <div style={{fontSize:12,color:"#64748b"}}>{(cfg.orgType||"religiosa")==="religiosa"?"Igrejas, agências missionárias, equipes ministeriais — linguagem ministerial":"Empresas, ONGs, escolas — linguagem profissional"}</div>
             </div>
             <span style={{marginLeft:"auto",fontSize:11,background:"#dbeafe",color:"#1e40af",padding:"3px 8px",borderRadius:6,fontWeight:600}}>Definido</span>
           </div>
@@ -2195,9 +2334,47 @@ export default function App(){
                   </li>
                 ))}
               </ul>
-              <button onClick={handleUpgradeCheckout} style={{width:"100%",padding:"14px",background:"#2563eb",color:"white",border:"none",borderRadius:12,fontFamily:"'Segoe UI',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                💳 Pagar R$300 e personalizar →
-              </button>
+              {/* Campo de cupom upgrade */}
+              <div style={{marginBottom:16}}>
+                <button type="button" onClick={()=>setShowUpgradeCupom(p=>!p)}
+                  style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#64748b",padding:0,display:"flex",alignItems:"center",gap:6}}>
+                  {showUpgradeCupom?"－":"＋"} Tenho um cupom de desconto
+                </button>
+                {showUpgradeCupom&&(
+                  <div style={{marginTop:8}}>
+                    <div style={{display:"flex",gap:8}}>
+                      <input value={upgradeCupomCode} onChange={e=>setUpgradeCupomCode(e.target.value.toUpperCase())}
+                        style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid #dbeafe",fontSize:13,outline:"none"}} placeholder="Código do cupom"/>
+                      <button type="button" onClick={async()=>{
+                        if(!upgradeCupomCode.trim())return;
+                        setUpgradeCupomMsg({type:"loading",text:"Validando…"});
+                        const c=await validarCupomUpgrade(upgradeCupomCode.trim());
+                        if(!c){setUpgradeCupomMsg({type:"error",text:"Cupom inválido ou expirado."});setUpgradeCupomAplicado(null);}
+                        else{setUpgradeCupomAplicado(c);setUpgradeCupomMsg({type:"success",text:c.desconto_pct===100?"🎉 100% de desconto! Upgrade gratuito.":`✅ ${c.desconto_pct}% de desconto aplicado!`});}
+                      }} style={{padding:"0 14px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13}}>Aplicar</button>
+                    </div>
+                    {upgradeCupomMsg&&<p style={{fontSize:12,marginTop:6,color:upgradeCupomMsg.type==="error"?"#dc2626":upgradeCupomMsg.type==="success"?"#059669":"#64748b"}}>{upgradeCupomMsg.text}</p>}
+                  </div>
+                )}
+              </div>
+              {upgradeCupomAplicado&&upgradeCupomAplicado.desconto_pct===100?(
+                <button onClick={async()=>{
+                  setShowUpgradeModal(false);
+                  try{
+                    await sbFetch(`organizations?id=eq.${org.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({plan_custom:true})});
+                    await sbFetch(`cupons?id=eq.${upgradeCupomAplicado.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({usos:(upgradeCupomAplicado.usos||0)+1})});
+                    const updated={...org,planCustom:true};setOrg(updated);
+                    setUpgradeCupomAplicado(null);setUpgradeCupomCode("");setUpgradeCupomMsg(null);setShowUpgradeCupom(false);
+                    alert("✅ Plano Personalizado ativado gratuitamente!");
+                  }catch(e){alert("Erro ao ativar. Entre em contato: avalie360@conectandogente.com");}
+                }} style={{width:"100%",padding:"14px",background:"#059669",color:"white",border:"none",borderRadius:12,fontFamily:"'Segoe UI',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+                  🎉 Ativar gratuitamente →
+                </button>
+              ):(
+                <button onClick={handleUpgradeCheckout} style={{width:"100%",padding:"14px",background:"#2563eb",color:"white",border:"none",borderRadius:12,fontFamily:"'Segoe UI',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  💳 {upgradeCupomAplicado?`Pagar R$${Math.round(300*(1-upgradeCupomAplicado.desconto_pct/100))} e personalizar →`:"Pagar R$300 e personalizar →"}
+                </button>
+              )
               <p style={{textAlign:"center",fontSize:12,color:"#94a3b8",marginTop:12}}>🔒 Pagamento seguro via Stripe · PIX ou cartão</p>
             </div>
           </div>
@@ -2938,7 +3115,7 @@ export default function App(){
                       <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}</div>
                     </div>
                     <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:""})}
+                      <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
                         style={{padding:"5px 10px",borderRadius:8,border:`2px solid #6366f1`,background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
                       <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
                         style={{padding:"5px 10px",borderRadius:8,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>
@@ -2987,12 +3164,19 @@ export default function App(){
                   <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe em branco para não alterar)</span></label>
                   <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="••••••••"/>
                 </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Função</label>
+                  <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}}>
+                    <option value="">Sem função definida</option>
+                    {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
               </div>
               <div style={{display:"flex",gap:10,marginTop:22}}>
                 <button onClick={()=>setEditingUsuario(null)} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:700,fontSize:13}}>Cancelar</button>
                 <button onClick={async()=>{
                   if(!editingUsuario.nome.trim()||!editingUsuario.email.trim()){alert("Nome e email são obrigatórios.");return;}
-                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim()};
+                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim(),funcao_id:editingUsuario.funcao_id||null};
                   if(editingUsuario.novaSenha.length>=4) patch.senha_hash=simpleHash(editingUsuario.novaSenha);
                   else if(editingUsuario.novaSenha.length>0&&editingUsuario.novaSenha.length<4){alert("Senha deve ter ao menos 4 caracteres.");return;}
                   await sbFetch(`usuarios?id=eq.${editingUsuario.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify(patch)});
