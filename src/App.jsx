@@ -915,13 +915,34 @@ async function loadUsuarios(orgId) {
 }
 
 async function saveUsuario(u) {
+  // Tenta payload completo primeiro
   try {
     await sbFetch("usuarios", {
       method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
       body: JSON.stringify(u),
     });
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    // Fallback: tenta sem funcao_id (caso coluna não exista ainda)
+    if (e.message && e.message.includes("funcao_id")) {
+      try {
+        const { funcao_id, ...uSemFuncao } = u;
+        await sbFetch("usuarios", {
+          method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+          body: JSON.stringify(uSemFuncao),
+        });
+        console.warn("saveUsuario: funcao_id ignorado — coluna não existe na tabela");
+        return true;
+      } catch(e2) {
+        console.error("saveUsuario fallback error:", e2.message);
+        alert("Erro ao salvar usuário: " + e2.message);
+        return false;
+      }
+    }
+    console.error("saveUsuario error:", e.message);
+    alert("Erro ao salvar usuário: " + e.message);
+    return false;
+  }
 }
 
 async function deleteUsuario(id) {
@@ -3304,9 +3325,11 @@ export default function App(){
               <button onClick={async()=>{
                 if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()){alert("Preencha nome, email e senha.");return;}
                 const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
-                await saveUsuario(u);
-                setUsuarios(p=>[...p,u]);
-                setNewUsuario({nome:"",email:"",senha:"avalie360",funcao_id:""});
+                const ok=await saveUsuario(u);
+                if(ok){
+                  setUsuarios(p=>[...p,u]);
+                  setNewUsuario({nome:"",email:"",senha:"avalie360",funcao_id:""});
+                }
               }} style={{...btn("#0891b2")}}>➕ Adicionar colaborador</button>
               <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...btn("#16a34a")}}>📥 Importar CSV</button>
             </div>
