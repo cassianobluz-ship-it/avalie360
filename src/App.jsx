@@ -940,7 +940,11 @@ async function saveUsuario(u) {
       }
     }
     console.error("saveUsuario error:", e.message);
-    alert("Erro ao salvar usuário: " + e.message);
+    if(e.message && e.message.includes("usuarios_email_org_id_key")) {
+      alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");
+    } else {
+      alert("Erro ao salvar usuário: " + e.message);
+    }
     return false;
   }
 }
@@ -3324,6 +3328,10 @@ export default function App(){
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <button onClick={async()=>{
                 if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()){alert("Preencha nome, email e senha.");return;}
+                const nomeExiste=usuarios.some(u=>u.nome.trim().toLowerCase()===newUsuario.nome.trim().toLowerCase());
+                if(nomeExiste&&!window.confirm(`Já existe um colaborador chamado "${newUsuario.nome.trim()}". Deseja cadastrar mesmo assim?`))return;
+                const emailExiste=usuarios.some(u=>u.email.trim().toLowerCase()===newUsuario.email.trim().toLowerCase());
+                if(emailExiste){alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");return;}
                 const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
                 const ok=await saveUsuario(u);
                 if(ok){
