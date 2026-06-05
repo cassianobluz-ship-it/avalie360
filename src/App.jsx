@@ -2569,6 +2569,7 @@ export default function App(){
                   </div>
                 )}
               </div>
+              <>
               {upgradeCupomAplicado&&upgradeCupomAplicado.desconto_pct===100?(
                 <button onClick={async()=>{
                   setShowUpgradeModal(false);
@@ -2586,8 +2587,9 @@ export default function App(){
                 <button onClick={handleUpgradeCheckout} style={{width:"100%",padding:"14px",background:"#2563eb",color:"white",border:"none",borderRadius:12,fontFamily:"'Segoe UI',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                   💳 {upgradeCupomAplicado?`Pagar R$${Math.round(300*(1-upgradeCupomAplicado.desconto_pct/100))} e personalizar →`:"Pagar R$300 e personalizar →"}
                 </button>
-              )
+              )}
               <p style={{textAlign:"center",fontSize:12,color:"#94a3b8",marginTop:12}}>🔒 Pagamento seguro via Stripe · PIX ou cartão</p>
+              </>
             </div>
           </div>
         )}
