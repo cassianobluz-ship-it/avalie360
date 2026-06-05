@@ -755,14 +755,21 @@ async function saveFuncao(f) {
       body:JSON.stringify(f),
     });
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    console.error("saveFuncao error:", e.message);
+    alert("Erro ao salvar função: " + e.message);
+    return false;
+  }
 }
 
 async function deleteFuncao(id) {
   try {
     await sbFetch(`org_funcoes?id=eq.${id}`, { method:"DELETE" });
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    console.error("deleteFuncao error:", e.message);
+    return false;
+  }
 }
 
 async function updateFuncaoRelacoes(funcaoId, avalia, avaliada_por) {
@@ -772,7 +779,10 @@ async function updateFuncaoRelacoes(funcaoId, avalia, avaliada_por) {
       body:JSON.stringify({ avalia, avaliada_por }),
     });
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    console.error("updateFuncaoRelacoes error:", e.message);
+    return false;
+  }
 }
 
 async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, avaliados, ciclo, forms) {
@@ -3226,11 +3236,12 @@ export default function App(){
             )}
             {/* Cadastrar nova função */}
             <div style={{display:"flex",gap:12,marginBottom:16}}>
-              <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} onKeyDown={async e=>{if(e.key==="Enter"&&newFuncao.trim()){const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};await saveFuncao(f);setFuncoes(p=>[...p,f]);setNewFuncao("");}}} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
+              <input value={newFuncao} onChange={e=>setNewFuncao(e.target.value)} onKeyDown={async e=>{if(e.key==="Enter"&&newFuncao.trim()){const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};const ok=await saveFuncao(f);if(ok){setFuncoes(p=>[...p,f]);setNewFuncao("");}}}} style={{...inp,flex:1}} placeholder="Nome da função (ex: Pastor, Coordenador, Voluntário)"/>
               <button onClick={async()=>{
                 if(!newFuncao.trim()) return;
                 const f={id:genId(10),org_id:org.id,nome:newFuncao.trim(),avalia:[],avaliada_por:[],created_at:new Date().toISOString()};
-                await saveFuncao(f);setFuncoes(p=>[...p,f]);setNewFuncao("");
+                const ok=await saveFuncao(f);
+                if(ok){setFuncoes(p=>[...p,f]);setNewFuncao("");}
               }} style={{...btn(pc2),whiteSpace:"nowrap"}}>+ Adicionar</button>
             </div>
             {/* Lista de funções */}
