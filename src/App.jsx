@@ -572,6 +572,7 @@ async function loadOrgs() {
         orgType: r.org_type || "religiosa",
         planCustom: r.plan_custom || false,
         modoAvaliacao: r.modo_avaliacao || "simples",
+        adminEmail: r.admin_email || "",
       };
     });
     return orgs;
@@ -597,6 +598,7 @@ async function upsertOrg(org) {
         org_type: org.orgType || "religiosa",
         plan_custom: org.planCustom || false,
         modo_avaliacao: org.modoAvaliacao || "simples",
+        admin_email: org.adminEmail || null,
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -894,36 +896,39 @@ async function loadUsuarios(orgId) {
 }
 
 async function saveUsuario(u) {
-  // Tenta payload completo primeiro
+  // Se funcao_id não é um ID válido (é texto livre do modo simples), mover para funcao_label
+  const payload = {...u};
+  const isValidId = payload.funcao_id && /^[a-z0-9]{8,}$/i.test(payload.funcao_id) && !payload.funcao_id.includes(" ");
+  if (payload.funcao_id && !isValidId) {
+    payload.funcao_label = payload.funcao_label || payload.funcao_id;
+    payload.funcao_id = null;
+  }
   try {
     await sbFetch("usuarios", {
       method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-      body: JSON.stringify(u),
+      body: JSON.stringify(payload),
     });
     return true;
   } catch(e) {
-    // Fallback: tenta sem funcao_id (caso coluna não exista ainda)
-    if (e.message && e.message.includes("funcao_id")) {
+    // Fallback progressivo
+    if (e.message && (e.message.includes("funcao_id") || e.message.includes("funcao_label"))) {
       try {
-        const { funcao_id, ...uSemFuncao } = u;
+        const { funcao_id, funcao_label, ...uSem } = payload;
         await sbFetch("usuarios", {
           method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-          body: JSON.stringify(uSemFuncao),
+          body: JSON.stringify(uSem),
         });
-        console.warn("saveUsuario: funcao_id ignorado — coluna não existe na tabela");
         return true;
       } catch(e2) {
-        console.error("saveUsuario fallback error:", e2.message);
-        alert("Erro ao salvar usuário: " + e2.message);
+        if(e2.message && e2.message.includes("usuarios_email_org_id_key")) {
+          alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");
+        } else { alert("Erro ao salvar usuário: " + e2.message); }
         return false;
       }
     }
-    console.error("saveUsuario error:", e.message);
     if(e.message && e.message.includes("usuarios_email_org_id_key")) {
       alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");
-    } else {
-      alert("Erro ao salvar usuário: " + e.message);
-    }
+    } else { alert("Erro ao salvar usuário: " + e.message); }
     return false;
   }
 }
@@ -1185,7 +1190,7 @@ function copyText(t){
 
 // ─── UI COMPONENTS ────────────────────────────────────────────────────
 function PoweredBy(){
-  return <div style={{textAlign:"center",padding:"14px 0 8px",fontSize:11,color:"#94a3b8"}}>Powered by <strong style={{color:"#64748b"}}>Conectando Gente</strong></div>;
+  return <div style={{textAlign:"center",padding:"14px 0 8px",fontSize:11,color:"#94a3b8"}}>Powered by <strong style={{color:"#f97316"}}>Conectando Gente</strong></div>;
 }
 
 function OrgLogo({org,size=72}){
@@ -1308,10 +1313,10 @@ function AtribuicoesEditor({usuario, org, ciclo, pc}){
 
   return(
     <div style={{background:"#f8faff",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #dbeafe"}}>
-      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Avaliações de {usuario.nome} — {ciclo}</p>
-      <p style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>Estas são as avaliações atribuídas a este colaborador. Use "✕" para remover exceções. Para gerar, clique em ⚡ no topo.</p>
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Atribuições de {usuario.nome} — {ciclo}</p>
+      <p style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>Estas são as avaliações atribuídas a este colaborador. Use "✕" para remover exceções. Para gerar novas, use o botão ⚡ no topo.</p>
       {ats.length===0?(
-        <p style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>Nenhuma avaliação atribuída ainda para este ciclo.</p>
+        <p style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>Nenhuma atribuição gerada ainda para este ciclo.</p>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {ats.map(at=>(
@@ -1886,7 +1891,15 @@ export default function App(){
     <div style={{minHeight:"100vh",background:"#ffffff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:380,width:"100%",textAlign:"center"}}>
         {/* Logo */}
-        <div style={{width:64,height:64,borderRadius:18,background:"#2563eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,margin:"0 auto 20px",color:"#fff",fontWeight:300,lineHeight:1}}>◎</div>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 200 200">
+            <rect width="200" height="200" rx="44" fill="#f97316"/>
+            <circle cx="100" cy="100" r="72" fill="#ffffff"/>
+            <circle cx="100" cy="100" r="58" fill="#1d4ed8"/>
+            <circle cx="100" cy="100" r="40" fill="#ffffff"/>
+            <circle cx="100" cy="100" r="24" fill="#f97316"/>
+          </svg>
+        </div>
         <h1 style={{fontSize:24,fontWeight:700,color:"#111827",margin:"0 0 8px",letterSpacing:"-0.02em"}}>Avalie360</h1>
         <p style={{color:"#6b7280",fontSize:14,margin:"0 0 36px",lineHeight:1.6}}>A forma mais simples de implantar avaliação 360° de verdade.</p>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -2109,6 +2122,15 @@ export default function App(){
         </div>
         {orgE&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Senha incorreta</p>}
         <div style={{display:"flex",gap:10,marginTop:12}}><button onClick={()=>setScreen("org_list")} style={{...btnO,flex:1}}>Voltar</button><button onClick={()=>loginOrg(org)} style={{...btn(org.primaryColor||"#2563eb"),flex:2}}>Entrar</button></div>
+        {org.adminEmail&&<button onClick={async()=>{
+          if(!window.confirm(`Enviar senha temporária para ${org.adminEmail}?`))return;
+          const novaSenha=Math.random().toString(36).slice(2,10).toUpperCase();
+          try{
+            await sbFetch(`organizations?id=eq.${org.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({admin_password:novaSenha})});
+            await fetch("https://avalie360.conectandogente.com/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:"",tipo:"senha_temp",adminEmail:org.adminEmail,novaSenha,baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
+            alert(`✅ Senha temporária enviada para ${org.adminEmail}. Verifique seu email.`);
+          }catch(e){alert("Erro ao enviar. Entre em contato: avalie360@conectandogente.com");}
+        }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#94a3b8",marginTop:12,textDecoration:"underline",width:"100%"}}>Esqueci minha senha</button>}
       </div>
       <PoweredBy/>
     </div>
@@ -2150,7 +2172,7 @@ export default function App(){
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
-            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=>{const fLabel=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id):(u.funcao_label||"");return<option key={u.id} value={u.id}>{u.nome}{fLabel?` — ${fLabel}`:""}</option>;})}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=><option key={u.id} value={u.id}>{u.nome}{(()=>{const fl=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||""):(u.funcao_label||"");return fl?` — ${fl}`:""})()}</option>)}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
               <button onClick={exportXLSX} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>📊 Excel</button>
@@ -2532,6 +2554,7 @@ export default function App(){
             <input value={cfg.baseUrl||""} onChange={e=>setCfg(p=>({...p,baseUrl:e.target.value}))} style={inp} placeholder="Ex: https://360.suaorganizacao.com.br"/>
             <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Cole aqui o endereço onde o app está publicado. Isso corrige os links de compartilhamento.</p>
           </div>
+          <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>EMAIL DO ADMINISTRADOR <span style={{fontWeight:400,color:"#94a3b8"}}>(para recuperação de senha)</span></label><input type="email" value={cfg.adminEmail||""} onChange={e=>setCfg(p=>({...p,adminEmail:e.target.value}))} style={inp} placeholder="admin@suaorg.com"/></div>
           <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMINISTRADOR</label><div style={{position:"relative"}}><input type={showAdminPass?"text":"password"} value={cfg.adminPassword||""} onChange={e=>setCfg(p=>({...p,adminPassword:e.target.value}))} style={{...inp,paddingRight:40}} placeholder="Deixe em branco para não alterar"/><button type="button" onClick={()=>setShowAdminPass(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8",padding:0}}>{showAdminPass?"🙈":"👁️"}</button></div></div>
           <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo ativo</label><select value={cfg.activeCiclo||CICLOS[0]} onChange={e=>setCfg(p=>({...p,activeCiclo:e.target.value}))} style={{...inp}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
           <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"12px 20px",fontSize:14}}>💾 Salvar configurações</button>
@@ -2608,26 +2631,6 @@ export default function App(){
             Restaurar padrão
           </button>
         </div>
-        {/* Modo de avaliação */}
-        <div style={{...card,marginBottom:16}}>
-          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>⚡ Modo de avaliação</h3>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Define como as avaliações são distribuídas entre os colaboradores. Pode ser alterado a qualquer momento.</p>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <button onClick={async()=>{const u={...org,modoAvaliacao:"simples"};await upsertOrg(u);setOrg(u);setCfg(p=>({...p,modoAvaliacao:"simples"}));setOrgs(p=>({...p,[org.id]:u}));alert("✅ Modo simples ativado!");}}
-              style={{padding:16,borderRadius:12,border:`2px solid ${(org.modoAvaliacao||"simples")==="simples"?"#059669":"#e2e8f0"}`,background:(org.modoAvaliacao||"simples")==="simples"?"#f0fdf4":"#fff",cursor:"pointer",textAlign:"left"}}>
-              <div style={{fontWeight:700,color:"#166534",marginBottom:4}}>👥 Todos avaliam todos</div>
-              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Simples e rápido. Cada pessoa avalia todas as outras como pares.</div>
-              {(org.modoAvaliacao||"simples")==="simples"&&<div style={{fontSize:11,color:"#059669",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
-            </button>
-            <button onClick={async()=>{const u={...org,modoAvaliacao:"avancado"};await upsertOrg(u);setOrg(u);setCfg(p=>({...p,modoAvaliacao:"avancado"}));setOrgs(p=>({...p,[org.id]:u}));alert("✅ Modo avançado ativado!");}}
-              style={{padding:16,borderRadius:12,border:`2px solid ${(org.modoAvaliacao||"simples")==="avancado"?"#2563eb":"#e2e8f0"}`,background:(org.modoAvaliacao||"simples")==="avancado"?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left"}}>
-              <div style={{fontWeight:700,color:"#1e3a8a",marginBottom:4}}>🏗️ Estrutura hierárquica</div>
-              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Defina funções e quem avalia quem. Ideal para orgs com liderança definida.</div>
-              {(org.modoAvaliacao||"simples")==="avancado"&&<div style={{fontSize:11,color:"#2563eb",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
-            </button>
-          </div>
-        </div>
-
         <div style={{...card,background:"#f0fdf4",border:"1px solid #bbf7d0"}}><h3 style={{color:"#166534",marginBottom:10,fontSize:14}}>🔒 LGPD — Conformidade</h3><p style={{fontSize:12,color:"#166534",lineHeight:1.7,margin:0}}>{LGPD}</p></div>
 
         {/* Notificações */}
@@ -3513,7 +3516,7 @@ export default function App(){
                 if(nomeExiste&&!window.confirm(`Já existe um colaborador chamado "${newUsuario.nome.trim()}". Deseja cadastrar mesmo assim?`))return;
                 const emailExiste=usuarios.some(u=>u.email.trim().toLowerCase()===newUsuario.email.trim().toLowerCase());
                 if(emailExiste){alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");return;}
-                const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:modoSimples?null:(newUsuario.funcao_id||null),funcao_label:modoSimples?(newUsuario.funcao_id||null):null,ativo:true,participa_ciclo:true,created_at:new Date().toISOString()};
+                const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
                 const ok=await saveUsuario(u);
                 if(ok){
                   setUsuarios(p=>[...p,u]);
@@ -3533,7 +3536,7 @@ export default function App(){
                       <div style={{width:34,height:34,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{u.nome.slice(0,2).toUpperCase()}</div>
                       <div style={{flex:1,minWidth:120}}>
                         <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
-                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id}`:u.funcao_label?` · ${u.funcao_label}`:""}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{(()=>{const fl=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||""):(u.funcao_label||"");return fl?` · ${fl}`:""})()}</div>
                       </div>
                       <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,color:u.participa_ciclo!==false?"#059669":"#94a3b8",fontWeight:600,flexShrink:0}} title="Participar do ciclo de avaliação">
                         <input type="checkbox" checked={u.participa_ciclo!==false} onChange={async()=>{
@@ -3544,10 +3547,10 @@ export default function App(){
                         {u.participa_ciclo!==false?"No ciclo":"Fora do ciclo"}
                       </label>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                        <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||"",funcao_label:u.funcao_label||""})}
+                        <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
                           style={{padding:"4px 9px",borderRadius:7,border:"2px solid #6366f1",background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
                         <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
-                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}} title="Ver e gerenciar atribuições individuais deste colaborador">📋 Avaliações</button>
+                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}} title="Ver e gerenciar atribuições individuais deste colaborador">⚙️ Atribuições</button>
                         <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
                           style={{padding:"4px 9px",borderRadius:7,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
                       </div>
@@ -3576,21 +3579,16 @@ export default function App(){
                 <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe vazio para não alterar)</span></label>
                   <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="••••••••"/></div>
                 <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Função</label>
-                  {(org.modoAvaliacao||"simples")==="simples"?(
-                    <input value={editingUsuario.funcao_label||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_label:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="Ex: Pastor, Líder, Voluntário"/>
-                  ):(
-                    <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,boxSizing:"border-box"}}>
-                      <option value="">Sem função</option>
-                      {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                    </select>
-                  )}</div>
+                  <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,boxSizing:"border-box"}}>
+                    <option value="">Sem função</option>
+                    {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select></div>
               </div>
               <div style={{display:"flex",gap:10,marginTop:22}}>
                 <button onClick={()=>setEditingUsuario(null)} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:700,fontSize:13}}>Cancelar</button>
                 <button onClick={async()=>{
                   if(!editingUsuario.nome.trim()||!editingUsuario.email.trim()){alert("Nome e email são obrigatórios.");return;}
-                  const modoSimples2=(org.modoAvaliacao||"simples")==="simples";
-                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim(),funcao_id:modoSimples2?null:(editingUsuario.funcao_id||null),funcao_label:modoSimples2?(editingUsuario.funcao_label||null):null};
+                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim(),funcao_id:editingUsuario.funcao_id||null};
                   if(editingUsuario.novaSenha.length>=4) patch.senha_hash=simpleHash(editingUsuario.novaSenha);
                   else if(editingUsuario.novaSenha.length>0&&editingUsuario.novaSenha.length<4){alert("Senha deve ter ao menos 4 caracteres.");return;}
                   await sbFetch(`usuarios?id=eq.${editingUsuario.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify(patch)});
