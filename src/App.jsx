@@ -571,6 +571,7 @@ async function loadOrgs() {
         createdAt: r.created_at,
         orgType: r.org_type || "religiosa",
         planCustom: r.plan_custom || false,
+        modoAvaliacao: r.modo_avaliacao || "simples",
       };
     });
     return orgs;
@@ -595,6 +596,7 @@ async function upsertOrg(org) {
         yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
         org_type: org.orgType || "religiosa",
         plan_custom: org.planCustom || false,
+        modo_avaliacao: org.modoAvaliacao || "simples",
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -2439,15 +2441,48 @@ export default function App(){
 
       {/* ── ONBOARDING MODAL ── */}
       {showOnboarding&&(()=>{
-        const steps=[
-          {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação."},
-          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores com suas funções.\n\n💡 Autoavaliação e Avaliação de Pares são geradas automaticamente — você não precisa configurar isso."},
-          {icon:"👤",title:"Passo 2 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um tem um toggle \"No ciclo\" — desmarque quem não deve participar desta rodada de avaliação."},
-          {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Clique em \"⚙️ Config\" no menu superior. Defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links corretamente."},
-          {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"🔗 Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto para começar!"},
+        const stepsAvancado=[
+          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"Na tela \"👥 Equipe\", crie as funções (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores.\n\n💡 Autoavaliação e Avaliação de Pares são criadas automaticamente."},
+          {icon:"⚙️",title:"Passo 2 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app."},
+          {icon:"🔗",title:"Passo 3 — Compartilhe o link",desc:"No painel, copie o link de acesso e envie para os colaboradores. Pronto!"},
         ];
-        const s=steps[onboardingStep];
-        const isLast=onboardingStep===steps.length-1;
+        const stepsSimples=[
+          {icon:"👥",title:"Passo 1 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um receberá login para acessar o sistema."},
+          {icon:"⚙️",title:"Passo 2 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app."},
+          {icon:"🔗",title:"Passo 3 — Avise os colaboradores",desc:"No painel, copie o link de acesso e envie por WhatsApp — ou use \"📨 Enviar convites\" em ⚙️ Config para emails automáticos.\n\nCada pessoa avaliará todas as outras automaticamente!"},
+        ];
+        if(onboardingStep===0) return(
+          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+            <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:580,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",position:"relative"}}>
+              <button onClick={()=>setShowOnboarding(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#94a3b8"}}>✕</button>
+              <div style={{textAlign:"center",marginBottom:28}}>
+                <div style={{fontSize:48,marginBottom:12}}>🎉</div>
+                <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:8}}>Bem-vindo ao Avalie360!</h2>
+                <p style={{fontSize:14,color:"#64748b",lineHeight:1.6}}>Como você quer configurar sua avaliação?</p>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+                <button onClick={async()=>{const updated={...org,modoAvaliacao:"simples"};await upsertOrg(updated);setOrg(updated);setOrgs(p=>({...p,[org.id]:updated}));setOnboardingStep(1);}} style={{background:"#f0fdf4",border:"2px solid #86efac",borderRadius:16,padding:20,cursor:"pointer",textAlign:"left"}}>
+                  <div style={{fontSize:32,marginBottom:8}}>👥</div>
+                  <div style={{fontWeight:800,fontSize:15,color:"#166534",marginBottom:6}}>Todos avaliam todos</div>
+                  <div style={{fontSize:12,color:"#166534",lineHeight:1.6,marginBottom:12}}>Simples e rápido. Cada pessoa avalia todas as outras como pares. Ideal para equipes pequenas.</div>
+                  <div style={{background:"#059669",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,textAlign:"center"}}>✨ Pronto em minutos</div>
+                </button>
+                <button onClick={async()=>{const updated={...org,modoAvaliacao:"avancado"};await upsertOrg(updated);setOrg(updated);setOrgs(p=>({...p,[org.id]:updated}));setOnboardingStep(1);}} style={{background:"#eff6ff",border:"2px solid #bfdbfe",borderRadius:16,padding:20,cursor:"pointer",textAlign:"left"}}>
+                  <div style={{fontSize:32,marginBottom:8}}>🏗️</div>
+                  <div style={{fontWeight:800,fontSize:15,color:"#1e3a8a",marginBottom:6}}>Estrutura hierárquica</div>
+                  <div style={{fontSize:12,color:"#1e40af",lineHeight:1.6,marginBottom:12}}>Defina funções e quem avalia quem. Ideal para organizações com liderança definida.</div>
+                  <div style={{background:"#2563eb",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,textAlign:"center"}}>🏗️ Controle total</div>
+                </button>
+              </div>
+              <p style={{fontSize:11,color:"#94a3b8",textAlign:"center"}}>Você pode mudar o modo a qualquer momento em ⚙️ Config</p>
+            </div>
+          </div>
+        );
+        const modo=org.modoAvaliacao||"simples";
+        const steps=modo==="simples"?stepsSimples:stepsAvancado;
+        const stepIdx=onboardingStep-1;
+        const s=steps[Math.min(stepIdx,steps.length-1)];
+        const isLast=stepIdx>=steps.length-1;
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
             <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:460,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
@@ -2456,14 +2491,11 @@ export default function App(){
               <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:10}}>{s.title}</h2>
               <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24,whiteSpace:"pre-line"}}>{s.desc}</p>
               <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
-                {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===onboardingStep?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
+                {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===stepIdx?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
               </div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                {onboardingStep>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
-                <button onClick={()=>{
-                  if(isLast){setShowOnboarding(false);}
-                  else{setOnboardingStep(p=>p+1);}
-                }} style={{padding:"12px 28px",borderRadius:10,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:15}}>
+                {stepIdx>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
+                <button onClick={()=>{isLast?setShowOnboarding(false):setOnboardingStep(p=>p+1);}} style={{padding:"12px 28px",borderRadius:10,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:15}}>
                   {isLast?"Fechar e começar! 🚀":"Próximo →"}
                 </button>
               </div>
@@ -2576,6 +2608,26 @@ export default function App(){
             Restaurar padrão
           </button>
         </div>
+        {/* Modo de avaliação */}
+        <div style={{...card,marginBottom:16}}>
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>⚡ Modo de avaliação</h3>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Define como as avaliações são distribuídas entre os colaboradores. Pode ser alterado a qualquer momento.</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <button onClick={async()=>{const u={...org,modoAvaliacao:"simples"};await upsertOrg(u);setOrg(u);setCfg(p=>({...p,modoAvaliacao:"simples"}));setOrgs(p=>({...p,[org.id]:u}));alert("✅ Modo simples ativado!");}}
+              style={{padding:16,borderRadius:12,border:`2px solid ${(org.modoAvaliacao||"simples")==="simples"?"#059669":"#e2e8f0"}`,background:(org.modoAvaliacao||"simples")==="simples"?"#f0fdf4":"#fff",cursor:"pointer",textAlign:"left"}}>
+              <div style={{fontWeight:700,color:"#166534",marginBottom:4}}>👥 Todos avaliam todos</div>
+              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Simples e rápido. Cada pessoa avalia todas as outras como pares.</div>
+              {(org.modoAvaliacao||"simples")==="simples"&&<div style={{fontSize:11,color:"#059669",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
+            </button>
+            <button onClick={async()=>{const u={...org,modoAvaliacao:"avancado"};await upsertOrg(u);setOrg(u);setCfg(p=>({...p,modoAvaliacao:"avancado"}));setOrgs(p=>({...p,[org.id]:u}));alert("✅ Modo avançado ativado!");}}
+              style={{padding:16,borderRadius:12,border:`2px solid ${(org.modoAvaliacao||"simples")==="avancado"?"#2563eb":"#e2e8f0"}`,background:(org.modoAvaliacao||"simples")==="avancado"?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left"}}>
+              <div style={{fontWeight:700,color:"#1e3a8a",marginBottom:4}}>🏗️ Estrutura hierárquica</div>
+              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Defina funções e quem avalia quem. Ideal para orgs com liderança definida.</div>
+              {(org.modoAvaliacao||"simples")==="avancado"&&<div style={{fontSize:11,color:"#2563eb",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
+            </button>
+          </div>
+        </div>
+
         <div style={{...card,background:"#f0fdf4",border:"1px solid #bbf7d0"}}><h3 style={{color:"#166534",marginBottom:10,fontSize:14}}>🔒 LGPD — Conformidade</h3><p style={{fontSize:12,color:"#166534",lineHeight:1.7,margin:0}}>{LGPD}</p></div>
 
         {/* Notificações */}
