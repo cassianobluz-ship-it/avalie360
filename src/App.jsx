@@ -2122,7 +2122,8 @@ export default function App(){
         </div>
         {orgE&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Senha incorreta</p>}
         <div style={{display:"flex",gap:10,marginTop:12}}><button onClick={()=>setScreen("org_list")} style={{...btnO,flex:1}}>Voltar</button><button onClick={()=>loginOrg(org)} style={{...btn(org.primaryColor||"#2563eb"),flex:2}}>Entrar</button></div>
-        {org.adminEmail&&<button onClick={async()=>{
+        <button onClick={async()=>{
+          if(!org.adminEmail){alert("Configure o email do administrador em ⚙️ Config para usar a recuperação de senha.");return;}
           if(!window.confirm(`Enviar senha temporária para ${org.adminEmail}?`))return;
           const novaSenha=Math.random().toString(36).slice(2,10).toUpperCase();
           try{
@@ -2130,7 +2131,7 @@ export default function App(){
             await fetch("https://avalie360.conectandogente.com/api/send-notifications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orgId:org.id,orgName:org.name,ciclo:"",tipo:"senha_temp",adminEmail:org.adminEmail,novaSenha,baseUrl:org.baseUrl||"https://avalie360.vercel.app",slug:org.slug||""})});
             alert(`✅ Senha temporária enviada para ${org.adminEmail}. Verifique seu email.`);
           }catch(e){alert("Erro ao enviar. Entre em contato: avalie360@conectandogente.com");}
-        }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#94a3b8",marginTop:12,textDecoration:"underline",width:"100%"}}>Esqueci minha senha</button>}
+        }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#94a3b8",marginTop:12,textDecoration:"underline",width:"100%"}}>Esqueci minha senha</button>
       </div>
       <PoweredBy/>
     </div>
