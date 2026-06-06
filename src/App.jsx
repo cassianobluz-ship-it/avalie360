@@ -571,7 +571,6 @@ async function loadOrgs() {
         createdAt: r.created_at,
         orgType: r.org_type || "religiosa",
         planCustom: r.plan_custom || false,
-        modoAvaliacao: r.modo_avaliacao || "simples",
       };
     });
     return orgs;
@@ -596,7 +595,6 @@ async function upsertOrg(org) {
         yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
         org_type: org.orgType || "religiosa",
         plan_custom: org.planCustom || false,
-        modo_avaliacao: org.modoAvaliacao || "avancado",
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -787,49 +785,62 @@ async function updateFuncaoRelacoes(funcaoId, avalia, avaliada_por) {
   }
 }
 
-async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, ciclo, forms, modoAvaliacao) {
+async function gerarAtribuicoesAutomaticas(orgId, usuarios, funcoes, ciclo, forms) {
   const atribuicoes = [];
+  // Só usuários que participam do ciclo
   const participantes = usuarios.filter(u => u.participa_ciclo !== false);
-  const modoSimples = (modoAvaliacao || "avancado") === "simples";
 
   for (const u of participantes) {
-    // Autoavaliação — sempre em ambos os modos
+    if (!u.funcao_id) continue;
+    const funcaoU = funcoes.find(f => f.id === u.funcao_id);
+    if (!funcaoU) continue;
+
+    // Autoavaliação — sempre
     const autoForm = forms.find(f => f.id === "autoavaliacao");
     if (autoForm) {
-      atribuicoes.push({id:genId(12),org_id:orgId,usuario_id:u.id,avaliado_id:u.id,avaliado_nome:u.nome,form_id:"autoavaliacao",ciclo,concluida:false});
+      atribuicoes.push({
+        id: genId(12), org_id: orgId, usuario_id: u.id,
+        avaliado_id: u.id, avaliado_nome: u.nome,
+        form_id: "autoavaliacao", ciclo, concluida: false,
+      });
     }
 
-    // Pares — todos avaliam todos no modo simples; mesma função no modo avançado
+    // Pares — mesma função, excluindo si mesmo
     const paresForm = forms.find(f => f.id === "pares");
     if (paresForm) {
-      const pares = modoSimples
-        ? participantes.filter(p => p.id !== u.id) // todos
-        : participantes.filter(p => p.id !== u.id && p.funcao_id === u.funcao_id); // mesma função
+      const pares = participantes.filter(p => p.id !== u.id && p.funcao_id === u.funcao_id);
       for (const par of pares) {
-        atribuicoes.push({id:genId(12),org_id:orgId,usuario_id:u.id,avaliado_id:par.id,avaliado_nome:par.nome,form_id:"pares",ciclo,concluida:false});
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: par.id, avaliado_nome: par.nome,
+          form_id: "pares", ciclo, concluida: false,
+        });
       }
     }
 
-    // Liderança e liderados — só no modo avançado
-    if (!modoSimples) {
-      if (!u.funcao_id) continue;
-      const funcaoU = funcoes.find(f => f.id === u.funcao_id);
-      if (!funcaoU) continue;
-
-      const lidForm = forms.find(f => f.id === "lideranca" || f.id === "lideranca_direta");
-      if (lidForm && funcaoU.avalia && funcaoU.avalia.length > 0) {
-        const liderados = participantes.filter(p => funcaoU.avalia.includes(p.funcao_id));
-        for (const liderado of liderados) {
-          atribuicoes.push({id:genId(12),org_id:orgId,usuario_id:u.id,avaliado_id:liderado.id,avaliado_nome:liderado.nome,form_id:lidForm.id,ciclo,concluida:false});
-        }
+    // Liderança — avalia funções que esta função lidera (avalia[])
+    const lidForm = forms.find(f => f.id === "lideranca" || f.id === "lideranca_direta");
+    if (lidForm && funcaoU.avalia && funcaoU.avalia.length > 0) {
+      const liderados = participantes.filter(p => funcaoU.avalia.includes(p.funcao_id));
+      for (const liderado of liderados) {
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: liderado.id, avaliado_nome: liderado.nome,
+          form_id: lidForm.id, ciclo, concluida: false,
+        });
       }
+    }
 
-      const lidadosForm = forms.find(f => f.id === "liderados");
-      if (lidadosForm && funcaoU.avaliada_por && funcaoU.avaliada_por.length > 0) {
-        const lideres = participantes.filter(p => funcaoU.avaliada_por.includes(p.funcao_id));
-        for (const lider of lideres) {
-          atribuicoes.push({id:genId(12),org_id:orgId,usuario_id:u.id,avaliado_id:lider.id,avaliado_nome:lider.nome,form_id:"liderados",ciclo,concluida:false});
-        }
+    // Pelos liderados — avalia quem a lidera (avaliada_por[])
+    const lidadosForm = forms.find(f => f.id === "liderados");
+    if (lidadosForm && funcaoU.avaliada_por && funcaoU.avaliada_por.length > 0) {
+      const lideres = participantes.filter(p => funcaoU.avaliada_por.includes(p.funcao_id));
+      for (const lider of lideres) {
+        atribuicoes.push({
+          id: genId(12), org_id: orgId, usuario_id: u.id,
+          avaliado_id: lider.id, avaliado_nome: lider.nome,
+          form_id: "liderados", ciclo, concluida: false,
+        });
       }
     }
   }
@@ -881,40 +892,27 @@ async function loadUsuarios(orgId) {
 }
 
 async function saveUsuario(u) {
-  // No modo simples, funcao_id pode ser texto livre — não enviar ao banco (tem FK)
-  // Guardamos em funcao_label separado se necessário
-  const payload = {...u};
-  // Se funcao_id não é um ID válido (uuid/genId), não enviar ao banco
-  const isValidId = payload.funcao_id && /^[a-z0-9]{10,}$/.test(payload.funcao_id) && !payload.funcao_id.includes(" ");
-  if (!isValidId) {
-    payload.funcao_label = payload.funcao_id || null;
-    payload.funcao_id = null;
-  }
   // Tenta payload completo primeiro
   try {
     await sbFetch("usuarios", {
       method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(u),
     });
     return true;
   } catch(e) {
-    // Fallback: tenta sem funcao_id
-    if (e.message && (e.message.includes("funcao_id") || e.message.includes("funcao_label"))) {
+    // Fallback: tenta sem funcao_id (caso coluna não exista ainda)
+    if (e.message && e.message.includes("funcao_id")) {
       try {
-        const { funcao_id, funcao_label, ...uSem } = payload;
+        const { funcao_id, ...uSemFuncao } = u;
         await sbFetch("usuarios", {
           method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-          body: JSON.stringify(uSem),
+          body: JSON.stringify(uSemFuncao),
         });
-        console.warn("saveUsuario: funcao_id/label ignorado — coluna não existe");
+        console.warn("saveUsuario: funcao_id ignorado — coluna não existe na tabela");
         return true;
       } catch(e2) {
         console.error("saveUsuario fallback error:", e2.message);
-        if(e2.message.includes("usuarios_email_org_id_key")) {
-          alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");
-        } else {
-          alert("Erro ao salvar usuário: " + e2.message);
-        }
+        alert("Erro ao salvar usuário: " + e2.message);
         return false;
       }
     }
@@ -1070,17 +1068,26 @@ async function importarUsuarios(orgId, lista, orgSlug) {
   for (const item of lista) {
     try {
       const usuarioId = genId(10);
-      // funcao do CSV é texto livre — salvar como funcao_id (coluna text sem FK)
-      const funcaoLabel = item.funcao ? san(item.funcao) : null;
+      const avaliadoId = slugify(item.nome).slice(0, 30) + "-" + genId(4);
 
+      // Criar usuário
       await sbFetch("usuarios", {
         method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
         body: JSON.stringify({
           id: usuarioId, org_id: orgId,
           nome: san(item.nome), email: item.email.toLowerCase().trim(),
           senha_hash: hash, ativo: true,
-          funcao_id: null, // texto livre salvo separado, FK deixada nula
-          participa_ciclo: true,
+          created_at: new Date().toISOString(),
+        }),
+      });
+
+      // Criar avaliado vinculado ao usuário
+      await sbFetch("avaliados", {
+        method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+        body: JSON.stringify({
+          id: avaliadoId, org_id: orgId,
+          nome: san(item.nome), funcao: san(item.funcao || ""),
+          usuario_id: usuarioId, ativo: true,
           created_at: new Date().toISOString(),
         }),
       });
@@ -1299,10 +1306,10 @@ function AtribuicoesEditor({usuario, org, ciclo, pc}){
 
   return(
     <div style={{background:"#f8faff",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #dbeafe"}}>
-      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Atribuições de {usuario.nome} — {ciclo}</p>
-      <p style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>Estas são as avaliações atribuídas a este colaborador. Use "✕" para remover exceções. Para gerar novas, use o botão ⚡ no topo.</p>
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Avaliações de {usuario.nome} — {ciclo}</p>
+      <p style={{fontSize:11,color:"#94a3b8",marginBottom:12}}>Estas são as avaliações atribuídas a este colaborador. Use "✕" para remover exceções. Para gerar, clique em ⚡ no topo.</p>
       {ats.length===0?(
-        <p style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>Nenhuma atribuição gerada ainda para este ciclo.</p>
+        <p style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>Nenhuma avaliação atribuída ainda para este ciclo.</p>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {ats.map(at=>(
@@ -2141,7 +2148,7 @@ export default function App(){
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
-            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=>{const funcaoLabel=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id):"";return<option key={u.id} value={u.id}>{u.nome}{funcaoLabel?` — ${funcaoLabel}`:""}</option>;})}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=>{const fLabel=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id):(u.funcao_label||"");return<option key={u.id} value={u.id}>{u.nome}{fLabel?` — ${fLabel}`:""}</option>;})}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
               <button onClick={exportXLSX} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>📊 Excel</button>
@@ -2432,61 +2439,15 @@ export default function App(){
 
       {/* ── ONBOARDING MODAL ── */}
       {showOnboarding&&(()=>{
-        const stepsAvancado=[
-          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"Na tela \"👥 Equipe\", crie as funções (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores.\n\n💡 Autoavaliação e Avaliação de Pares são criadas automaticamente."},
-          {icon:"⚙️",title:"Passo 2 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app."},
-          {icon:"🔗",title:"Passo 3 — Compartilhe o link",desc:"No painel, copie o link de acesso e envie para os colaboradores. Pronto!"},
+        const steps=[
+          {icon:"🎉",title:"Bem-vindo ao Avalie360!",desc:"Sua conta está pronta. Vamos configurar tudo em 4 passos simples para você lançar o primeiro ciclo de avaliação."},
+          {icon:"👥",title:"Passo 1 — Crie as funções e colaboradores",desc:"No menu superior, clique em \"👥 Equipe\". Crie as funções da organização (ex: Pastor, Coordenador) e marque quem avalia quem. Depois cadastre os colaboradores com suas funções.\n\n💡 Autoavaliação e Avaliação de Pares são geradas automaticamente — você não precisa configurar isso."},
+          {icon:"👤",title:"Passo 2 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um tem um toggle \"No ciclo\" — desmarque quem não deve participar desta rodada de avaliação."},
+          {icon:"⚙️",title:"Passo 3 — Configure o ciclo",desc:"Clique em \"⚙️ Config\" no menu superior. Defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app para gerar os links corretamente."},
+          {icon:"🔗",title:"Passo 4 — Compartilhe os links",desc:"No painel principal, clique em \"🔗 Links de acesso\", copie os links e envie para os colaboradores por WhatsApp ou email. Pronto para começar!"},
         ];
-        const stepsSimples=[
-          {icon:"👥",title:"Passo 1 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um receberá login para acessar o sistema."},
-          {icon:"⚙️",title:"Passo 2 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app."},
-          {icon:"🔗",title:"Passo 3 — Avise os colaboradores",desc:"No painel, copie o link de acesso e envie por WhatsApp — ou use \"📨 Enviar convites\" em ⚙️ Config para disparar emails automáticos para todos de uma vez.\n\nCada pessoa avaliará todas as outras automaticamente!"},
-        ];
-
-        // Passo 0 — bifurcação
-        if(onboardingStep===0) return(
-          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-            <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:580,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",position:"relative"}}>
-              <button onClick={()=>setShowOnboarding(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#94a3b8"}}>✕</button>
-              <div style={{textAlign:"center",marginBottom:28}}>
-                <div style={{fontSize:48,marginBottom:12}}>🎉</div>
-                <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:8}}>Bem-vindo ao Avalie360!</h2>
-                <p style={{fontSize:14,color:"#64748b",lineHeight:1.6}}>Como você quer configurar sua avaliação?</p>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-                <button onClick={async()=>{
-                  const updated={...org,modoAvaliacao:"simples"};
-                  await upsertOrg(updated);setOrg(updated);
-                  setOrgs(p=>({...p,[org.id]:updated}));
-                  setOnboardingStep(1);
-                }} style={{background:"#f0fdf4",border:"2px solid #86efac",borderRadius:16,padding:20,cursor:"pointer",textAlign:"left"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>👥</div>
-                  <div style={{fontWeight:800,fontSize:15,color:"#166534",marginBottom:6}}>Todos avaliam todos</div>
-                  <div style={{fontSize:12,color:"#166534",lineHeight:1.6,marginBottom:12}}>Simples e rápido. Cada pessoa avalia todas as outras como pares. Ideal para equipes pequenas.</div>
-                  <div style={{background:"#059669",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,textAlign:"center"}}>✨ Pronto em minutos</div>
-                </button>
-                <button onClick={async()=>{
-                  const updated={...org,modoAvaliacao:"avancado"};
-                  await upsertOrg(updated);setOrg(updated);
-                  setOrgs(p=>({...p,[org.id]:updated}));
-                  setOnboardingStep(1);
-                }} style={{background:"#eff6ff",border:"2px solid #bfdbfe",borderRadius:16,padding:20,cursor:"pointer",textAlign:"left"}}>
-                  <div style={{fontSize:32,marginBottom:8}}>🏗️</div>
-                  <div style={{fontWeight:800,fontSize:15,color:"#1e3a8a",marginBottom:6}}>Estrutura hierárquica</div>
-                  <div style={{fontSize:12,color:"#1e40af",lineHeight:1.6,marginBottom:12}}>Defina funções e quem avalia quem. Ideal para organizações com liderança e equipes definidas.</div>
-                  <div style={{background:"#2563eb",color:"#fff",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,textAlign:"center"}}>🏗️ Controle total</div>
-                </button>
-              </div>
-              <p style={{fontSize:11,color:"#94a3b8",textAlign:"center"}}>Você pode mudar o modo a qualquer momento em ⚙️ Config</p>
-            </div>
-          </div>
-        );
-
-        const modo=org.modoAvaliacao||"avancado";
-        const steps=modo==="simples"?stepsSimples:stepsAvancado;
-        const stepIdx=onboardingStep-1; // step 0 é bifurcação
-        const s=steps[Math.min(stepIdx,steps.length-1)];
-        const isLast=stepIdx>=steps.length-1;
+        const s=steps[onboardingStep];
+        const isLast=onboardingStep===steps.length-1;
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
             <div style={{background:"#fff",borderRadius:20,padding:36,maxWidth:460,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
@@ -2495,10 +2456,10 @@ export default function App(){
               <h2 style={{fontSize:20,fontWeight:800,color:"#1e3a8a",marginBottom:10}}>{s.title}</h2>
               <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:24,whiteSpace:"pre-line"}}>{s.desc}</p>
               <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:24}}>
-                {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===stepIdx?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
+                {steps.map((_,i)=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===onboardingStep?pc:"#e2e8f0",transition:"background 0.2s"}}/>)}
               </div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                {stepIdx>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
+                {onboardingStep>0&&<button onClick={()=>setOnboardingStep(p=>p-1)} style={{padding:"10px 20px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:14}}>← Anterior</button>}
                 <button onClick={()=>{
                   if(isLast){setShowOnboarding(false);}
                   else{setOnboardingStep(p=>p+1);}
@@ -2544,7 +2505,7 @@ export default function App(){
           <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"12px 20px",fontSize:14}}>💾 Salvar configurações</button>
         </div>
         <div style={{...card,marginBottom:16}}>
-          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏗️ Tipo de organização</h3>
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏛️ Tipo de organização</h3>
           <p style={{fontSize:12,color:"#64748b",marginBottom:12,lineHeight:1.6}}>Define a linguagem dos formulários de avaliação. Esta configuração é definida na criação e não pode ser alterada para preservar a consistência histórica dos dados.</p>
           <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:R.md,background:"#eff6ff",border:"1px solid #dbeafe"}}>
             <span style={{fontSize:22}}>{(cfg.orgType||"religiosa")==="religiosa"?"⛪":"🏢"}</span>
@@ -2615,26 +2576,6 @@ export default function App(){
             Restaurar padrão
           </button>
         </div>
-        {/* Modo de avaliação */}
-        <div style={{...card,marginBottom:16}}>
-          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>⚡ Modo de avaliação</h3>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Define como as avaliações são distribuídas entre os colaboradores.</p>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <button onClick={async()=>{const u={...cfg,modoAvaliacao:"simples"};setCfg(u);const o={...org,modoAvaliacao:"simples"};await upsertOrg(o);setOrg(o);setOrgs(p=>({...p,[org.id]:o}));alert("✅ Modo simples ativado!");}}
-              style={{padding:16,borderRadius:12,border:`2px solid ${(cfg.modoAvaliacao||"avancado")==="simples"?"#059669":"#e2e8f0"}`,background:(cfg.modoAvaliacao||"avancado")==="simples"?"#f0fdf4":"#fff",cursor:"pointer",textAlign:"left"}}>
-              <div style={{fontWeight:700,color:"#166534",marginBottom:4}}>👥 Todos avaliam todos</div>
-              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Simples e rápido. Cada pessoa avalia todas as outras como pares. Ideal para equipes pequenas.</div>
-              {(cfg.modoAvaliacao||"avancado")==="simples"&&<div style={{fontSize:11,color:"#059669",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
-            </button>
-            <button onClick={async()=>{const u={...cfg,modoAvaliacao:"avancado"};setCfg(u);const o={...org,modoAvaliacao:"avancado"};await upsertOrg(o);setOrg(o);setOrgs(p=>({...p,[org.id]:o}));alert("✅ Modo avançado ativado!");}}
-              style={{padding:16,borderRadius:12,border:`2px solid ${(cfg.modoAvaliacao||"avancado")==="avancado"?"#2563eb":"#e2e8f0"}`,background:(cfg.modoAvaliacao||"avancado")==="avancado"?"#eff6ff":"#fff",cursor:"pointer",textAlign:"left"}}>
-              <div style={{fontWeight:700,color:"#1e3a8a",marginBottom:4}}>🏗️ Estrutura hierárquica</div>
-              <div style={{fontSize:12,color:"#64748b",lineHeight:1.5}}>Defina funções e quem avalia quem. Ideal para organizações com liderança definida.</div>
-              {(cfg.modoAvaliacao||"avancado")==="avancado"&&<div style={{fontSize:11,color:"#2563eb",fontWeight:700,marginTop:8}}>✅ Ativo</div>}
-            </button>
-          </div>
-        </div>
-
         <div style={{...card,background:"#f0fdf4",border:"1px solid #bbf7d0"}}><h3 style={{color:"#166534",marginBottom:10,fontSize:14}}>🔒 LGPD — Conformidade</h3><p style={{fontSize:12,color:"#166534",lineHeight:1.7,margin:0}}>{LGPD}</p></div>
 
         {/* Notificações */}
@@ -3345,7 +3286,7 @@ export default function App(){
   // ── TELA DE FUNÇÕES/CARGOS ───────────────────────────────────────
   if(screen==="equipe"&&org){
     const pc2=org.primaryColor||"#2563eb";
-    const modoSimples=(org.modoAvaliacao||"avancado")==="simples";
+    const modoSimples=(org.modoAvaliacao||"simples")==="simples";
 
     async function gerarAtribuicoes(){
       setGerando(true);
@@ -3356,17 +3297,16 @@ export default function App(){
       ]);
       setUsuarios(usuariosAtuais);
       setFuncoes(funcoesAtuais);
-      const modoSimples=(org.modoAvaliacao||"simples")==="simples";
       const participantes=usuariosAtuais.filter(u=>u.participa_ciclo!==false);
       const semFuncao=participantes.filter(u=>!u.funcao_id);
       if(usuariosAtuais.length===0){alert("Nenhum colaborador cadastrado.");setGerando(false);return;}
-      if(!modoSimples&&funcoesAtuais.length===0){alert("Nenhuma função cadastrada. Cadastre as funções antes de gerar atribuições.");setGerando(false);return;}
+      if(funcoesAtuais.length===0){alert("Nenhuma função cadastrada.");setGerando(false);return;}
       if(participantes.length===0){alert("Nenhum colaborador marcado para participar do ciclo.");setGerando(false);return;}
-      if(!modoSimples&&semFuncao.length>0){
+      if(semFuncao.length>0){
         const nomes=semFuncao.map(u=>u.nome).join(", ");
         if(!window.confirm(`${semFuncao.length} colaborador(es) sem função serão ignorados: ${nomes}.\n\nDeseja continuar?`)){setGerando(false);return;}
       }
-      const novas=await gerarAtribuicoesAutomaticas(org.id,usuariosAtuais,funcoesAtuais,cicloAtivo,forms,org.modoAvaliacao||"avancado");
+      const novas=await gerarAtribuicoesAutomaticas(org.id,usuariosAtuais,funcoesAtuais,cicloAtivo,forms);
       if(novas.length===0){
         alert("Nenhuma atribuição gerada. Verifique se os colaboradores têm funções e se as funções têm relações configuradas.");
         setGerando(false);return;
@@ -3395,23 +3335,8 @@ export default function App(){
         <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 60px"}}>
           {geradoMsg&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#166534",fontWeight:500}}>{geradoMsg}</div>}
 
-          {/* Faixa de modo */}
-          {modoSimples?(
-            <div style={{background:"#f0fdf4",borderRadius:12,padding:"12px 16px",border:"1px solid #86efac",marginBottom:20,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <span style={{fontSize:20}}>👥</span>
-              <div style={{flex:1}}><span style={{fontWeight:700,color:"#166534",fontSize:13}}>Modo simples ativo — </span><span style={{fontSize:13,color:"#166534"}}>todos os colaboradores se avaliam entre si como pares + autoavaliação.</span></div>
-              <button onClick={async()=>{const u={...org,modoAvaliacao:"avancado"};await upsertOrg(u);setOrg(u);setOrgs(p=>({...p,[org.id]:u}));}} style={{fontSize:11,color:"#2563eb",background:"none",border:"1px solid #bfdbfe",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600,whiteSpace:"nowrap"}}>Ativar modo avançado →</button>
-            </div>
-          ):(
-            <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <span style={{fontSize:20}}>🏗️</span>
-              <div style={{flex:1}}><span style={{fontWeight:700,color:"#1e40af",fontSize:13}}>Modo avançado ativo — </span><span style={{fontSize:13,color:"#1e40af"}}>defina funções e relações de avaliação hierárquica.</span></div>
-              <button onClick={async()=>{const u={...org,modoAvaliacao:"simples"};await upsertOrg(u);setOrg(u);setOrgs(p=>({...p,[org.id]:u}));}} style={{fontSize:11,color:"#059669",background:"none",border:"1px solid #86efac",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600,whiteSpace:"nowrap"}}>Usar modo simples →</button>
-            </div>
-          )}
-
-          {/* ── PASSO 1: FUNÇÕES (só modo avançado) ── */}
-          {!modoSimples&&<div style={{...card,marginBottom:24,border:"2px solid #dbeafe"}}>
+          {/* ── PASSO 1: FUNÇÕES ── */}
+          <div style={{...card,marginBottom:24,border:"2px solid #dbeafe"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <div style={{width:32,height:32,borderRadius:10,background:pc2,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>1</div>
               <div style={{flex:1}}>
@@ -3483,15 +3408,15 @@ export default function App(){
                 ))}
               </div>
             )}
-          </div>}
+          </div>
 
           {/* ── PASSO 2: USUÁRIOS ── */}
           <div style={{...card,border:"2px solid #d1fae5"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <div style={{width:32,height:32,borderRadius:10,background:"#059669",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>{modoSimples?"1":"2"}</div>
+              <div style={{width:32,height:32,borderRadius:10,background:"#059669",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,flexShrink:0}}>2</div>
               <div style={{flex:1}}>
                 <div style={{fontWeight:800,fontSize:15,color:"#1e3a8a"}}>Cadastre os colaboradores</div>
-                <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{modoSimples?"Todos se avaliarão entre si automaticamente.":"Atribua uma função a cada pessoa. Depois clique em \"⚡ Gerar atribuições automáticas\"."}</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Atribua uma função a cada pessoa. Depois clique em "⚡ Gerar atribuições automáticas".</div>
               </div>
               <button onClick={()=>setShowHelpUsuarios(p=>!p)} style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontWeight:700,color:"#059669",fontSize:14,flexShrink:0}}>?</button>
             </div>
@@ -3520,15 +3445,11 @@ export default function App(){
                   <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8"}}>{showPwd?"🙈":"👁️"}</button>
                 </div>
               </div>
-              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional)</span></label>
-                {modoSimples?(
-                  <input value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp} placeholder="Ex: Pastor, Líder, Voluntário"/>
-                ):(
-                  <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
-                    <option value="">Sem função</option>
-                    {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                  </select>
-                )}</div>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
+                <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
+                  <option value="">Sem função</option>
+                  {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select></div>
             </div>
             <div style={{background:"#fefce8",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#92400e",marginBottom:12}}>
               🔑 A senha padrão é <strong>"avalie360"</strong>. O colaborador verá um aviso para alterá-la no primeiro acesso.
@@ -3560,7 +3481,7 @@ export default function App(){
                       <div style={{width:34,height:34,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{u.nome.slice(0,2).toUpperCase()}</div>
                       <div style={{flex:1,minWidth:120}}>
                         <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
-                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{modoSimples?(u.funcao_label?` · ${u.funcao_label}`:""):(u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:u.funcao_label?` · ${u.funcao_label}`:"")}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id}`:u.funcao_label?` · ${u.funcao_label}`:""}</div>
                       </div>
                       <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,color:u.participa_ciclo!==false?"#059669":"#94a3b8",fontWeight:600,flexShrink:0}} title="Participar do ciclo de avaliação">
                         <input type="checkbox" checked={u.participa_ciclo!==false} onChange={async()=>{
@@ -3571,10 +3492,10 @@ export default function App(){
                         {u.participa_ciclo!==false?"No ciclo":"Fora do ciclo"}
                       </label>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                        <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||""})}
+                        <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:"",funcao_id:u.funcao_id||"",funcao_label:u.funcao_label||""})}
                           style={{padding:"4px 9px",borderRadius:7,border:"2px solid #6366f1",background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
                         <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
-                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}} title="Ver e gerenciar atribuições individuais deste colaborador">⚙️ Atribuições</button>
+                          style={{padding:"4px 9px",borderRadius:7,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}} title="Ver e gerenciar atribuições individuais deste colaborador">📋 Avaliações</button>
                         <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
                           style={{padding:"4px 9px",borderRadius:7,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
                       </div>
@@ -3603,16 +3524,21 @@ export default function App(){
                 <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe vazio para não alterar)</span></label>
                   <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="••••••••"/></div>
                 <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase"}}>Função</label>
-                  <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,boxSizing:"border-box"}}>
-                    <option value="">Sem função</option>
-                    {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                  </select></div>
+                  {(org.modoAvaliacao||"simples")==="simples"?(
+                    <input value={editingUsuario.funcao_label||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_label:e.target.value}))} style={{...inp,boxSizing:"border-box"}} placeholder="Ex: Pastor, Líder, Voluntário"/>
+                  ):(
+                    <select value={editingUsuario.funcao_id||""} onChange={e=>setEditingUsuario(p=>({...p,funcao_id:e.target.value}))} style={{...inp,boxSizing:"border-box"}}>
+                      <option value="">Sem função</option>
+                      {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                    </select>
+                  )}</div>
               </div>
               <div style={{display:"flex",gap:10,marginTop:22}}>
                 <button onClick={()=>setEditingUsuario(null)} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:700,fontSize:13}}>Cancelar</button>
                 <button onClick={async()=>{
                   if(!editingUsuario.nome.trim()||!editingUsuario.email.trim()){alert("Nome e email são obrigatórios.");return;}
-                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim(),funcao_id:editingUsuario.funcao_id||null};
+                  const modoSimples2=(org.modoAvaliacao||"simples")==="simples";
+                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim(),funcao_id:modoSimples2?null:(editingUsuario.funcao_id||null),funcao_label:modoSimples2?(editingUsuario.funcao_label||null):null};
                   if(editingUsuario.novaSenha.length>=4) patch.senha_hash=simpleHash(editingUsuario.novaSenha);
                   else if(editingUsuario.novaSenha.length>0&&editingUsuario.novaSenha.length<4){alert("Senha deve ter ao menos 4 caracteres.");return;}
                   await sbFetch(`usuarios?id=eq.${editingUsuario.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify(patch)});
