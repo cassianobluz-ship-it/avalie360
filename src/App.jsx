@@ -571,7 +571,7 @@ async function loadOrgs() {
         createdAt: r.created_at,
         orgType: r.org_type || "religiosa",
         planCustom: r.plan_custom || false,
-        modoAvaliacao: r.modo_avaliacao || "avancado",
+        modoAvaliacao: r.modo_avaliacao || "simples",
       };
     });
     return orgs;
@@ -881,27 +881,40 @@ async function loadUsuarios(orgId) {
 }
 
 async function saveUsuario(u) {
+  // No modo simples, funcao_id pode ser texto livre — não enviar ao banco (tem FK)
+  // Guardamos em funcao_label separado se necessário
+  const payload = {...u};
+  // Se funcao_id não é um ID válido (uuid/genId), não enviar ao banco
+  const isValidId = payload.funcao_id && /^[a-z0-9]{10,}$/.test(payload.funcao_id) && !payload.funcao_id.includes(" ");
+  if (!isValidId) {
+    payload.funcao_label = payload.funcao_id || null;
+    payload.funcao_id = null;
+  }
   // Tenta payload completo primeiro
   try {
     await sbFetch("usuarios", {
       method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-      body: JSON.stringify(u),
+      body: JSON.stringify(payload),
     });
     return true;
   } catch(e) {
-    // Fallback: tenta sem funcao_id (caso coluna não exista ainda)
-    if (e.message && e.message.includes("funcao_id")) {
+    // Fallback: tenta sem funcao_id
+    if (e.message && (e.message.includes("funcao_id") || e.message.includes("funcao_label"))) {
       try {
-        const { funcao_id, ...uSemFuncao } = u;
+        const { funcao_id, funcao_label, ...uSem } = payload;
         await sbFetch("usuarios", {
           method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-          body: JSON.stringify(uSemFuncao),
+          body: JSON.stringify(uSem),
         });
-        console.warn("saveUsuario: funcao_id ignorado — coluna não existe na tabela");
+        console.warn("saveUsuario: funcao_id/label ignorado — coluna não existe");
         return true;
       } catch(e2) {
         console.error("saveUsuario fallback error:", e2.message);
-        alert("Erro ao salvar usuário: " + e2.message);
+        if(e2.message.includes("usuarios_email_org_id_key")) {
+          alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");
+        } else {
+          alert("Erro ao salvar usuário: " + e2.message);
+        }
         return false;
       }
     }
@@ -1057,26 +1070,17 @@ async function importarUsuarios(orgId, lista, orgSlug) {
   for (const item of lista) {
     try {
       const usuarioId = genId(10);
-      const avaliadoId = slugify(item.nome).slice(0, 30) + "-" + genId(4);
+      // funcao do CSV é texto livre — salvar como funcao_id (coluna text sem FK)
+      const funcaoLabel = item.funcao ? san(item.funcao) : null;
 
-      // Criar usuário
       await sbFetch("usuarios", {
         method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
         body: JSON.stringify({
           id: usuarioId, org_id: orgId,
           nome: san(item.nome), email: item.email.toLowerCase().trim(),
           senha_hash: hash, ativo: true,
-          created_at: new Date().toISOString(),
-        }),
-      });
-
-      // Criar avaliado vinculado ao usuário
-      await sbFetch("avaliados", {
-        method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
-        body: JSON.stringify({
-          id: avaliadoId, org_id: orgId,
-          nome: san(item.nome), funcao: san(item.funcao || ""),
-          usuario_id: usuarioId, ativo: true,
+          funcao_id: null, // texto livre salvo separado, FK deixada nula
+          participa_ciclo: true,
           created_at: new Date().toISOString(),
         }),
       });
@@ -2137,7 +2141,7 @@ export default function App(){
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
-            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=><option key={u.id} value={u.id}>{u.nome}{u.funcao_id?` — ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:""}</option>)}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{usuarios.filter(u=>u.participa_ciclo!==false).map(u=>{const funcaoLabel=u.funcao_id?(funcoes.find(f=>f.id===u.funcao_id)?.nome||u.funcao_id):"";return<option key={u.id} value={u.id}>{u.nome}{funcaoLabel?` — ${funcaoLabel}`:""}</option>;})}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
               <button onClick={exportXLSX} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>📊 Excel</button>
@@ -2436,7 +2440,7 @@ export default function App(){
         const stepsSimples=[
           {icon:"👥",title:"Passo 1 — Cadastre os colaboradores",desc:"Na tela \"👥 Equipe\", cadastre todos os colaboradores. Cada um receberá login para acessar o sistema."},
           {icon:"⚙️",title:"Passo 2 — Configure o ciclo",desc:"Em \"⚙️ Config\", defina o Ciclo Ativo (ex: 2026 - 1º Semestre) e configure a URL do app."},
-          {icon:"🔗",title:"Passo 3 — Compartilhe o link",desc:"No painel, copie o link de acesso e envie para os colaboradores. Cada pessoa avaliará todas as outras automaticamente!"},
+          {icon:"🔗",title:"Passo 3 — Avise os colaboradores",desc:"No painel, copie o link de acesso e envie por WhatsApp — ou use \"📨 Enviar convites\" em ⚙️ Config para disparar emails automáticos para todos de uma vez.\n\nCada pessoa avaliará todas as outras automaticamente!"},
         ];
 
         // Passo 0 — bifurcação
@@ -3352,12 +3356,13 @@ export default function App(){
       ]);
       setUsuarios(usuariosAtuais);
       setFuncoes(funcoesAtuais);
+      const modoSimples=(org.modoAvaliacao||"simples")==="simples";
       const participantes=usuariosAtuais.filter(u=>u.participa_ciclo!==false);
       const semFuncao=participantes.filter(u=>!u.funcao_id);
       if(usuariosAtuais.length===0){alert("Nenhum colaborador cadastrado.");setGerando(false);return;}
-      if(funcoesAtuais.length===0){alert("Nenhuma função cadastrada.");setGerando(false);return;}
+      if(!modoSimples&&funcoesAtuais.length===0){alert("Nenhuma função cadastrada. Cadastre as funções antes de gerar atribuições.");setGerando(false);return;}
       if(participantes.length===0){alert("Nenhum colaborador marcado para participar do ciclo.");setGerando(false);return;}
-      if(semFuncao.length>0){
+      if(!modoSimples&&semFuncao.length>0){
         const nomes=semFuncao.map(u=>u.nome).join(", ");
         if(!window.confirm(`${semFuncao.length} colaborador(es) sem função serão ignorados: ${nomes}.\n\nDeseja continuar?`)){setGerando(false);return;}
       }
@@ -3515,11 +3520,15 @@ export default function App(){
                   <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8"}}>{showPwd?"🙈":"👁️"}</button>
                 </div>
               </div>
-              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
-                <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
-                  <option value="">Sem função</option>
-                  {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select></div>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional)</span></label>
+                {modoSimples?(
+                  <input value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp} placeholder="Ex: Pastor, Líder, Voluntário"/>
+                ):(
+                  <select value={newUsuario.funcao_id||""} onChange={e=>setNewUsuario(p=>({...p,funcao_id:e.target.value}))} style={inp}>
+                    <option value="">Sem função</option>
+                    {funcoes.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                )}</div>
             </div>
             <div style={{background:"#fefce8",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#92400e",marginBottom:12}}>
               🔑 A senha padrão é <strong>"avalie360"</strong>. O colaborador verá um aviso para alterá-la no primeiro acesso.
@@ -3531,7 +3540,7 @@ export default function App(){
                 if(nomeExiste&&!window.confirm(`Já existe um colaborador chamado "${newUsuario.nome.trim()}". Deseja cadastrar mesmo assim?`))return;
                 const emailExiste=usuarios.some(u=>u.email.trim().toLowerCase()===newUsuario.email.trim().toLowerCase());
                 if(emailExiste){alert("❌ Este email já está cadastrado nesta organização. Use um email diferente.");return;}
-                const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:newUsuario.funcao_id||null,ativo:true,created_at:new Date().toISOString()};
+                const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),funcao_id:modoSimples?null:(newUsuario.funcao_id||null),funcao_label:modoSimples?(newUsuario.funcao_id||null):null,ativo:true,participa_ciclo:true,created_at:new Date().toISOString()};
                 const ok=await saveUsuario(u);
                 if(ok){
                   setUsuarios(p=>[...p,u]);
@@ -3551,7 +3560,7 @@ export default function App(){
                       <div style={{width:34,height:34,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{u.nome.slice(0,2).toUpperCase()}</div>
                       <div style={{flex:1,minWidth:120}}>
                         <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
-                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:""}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}{modoSimples?(u.funcao_label?` · ${u.funcao_label}`:""):(u.funcao_id?` · ${funcoes.find(f=>f.id===u.funcao_id)?.nome||""}`:u.funcao_label?` · ${u.funcao_label}`:"")}</div>
                       </div>
                       <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,color:u.participa_ciclo!==false?"#059669":"#94a3b8",fontWeight:600,flexShrink:0}} title="Participar do ciclo de avaliação">
                         <input type="checkbox" checked={u.participa_ciclo!==false} onChange={async()=>{
